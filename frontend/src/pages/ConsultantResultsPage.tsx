@@ -53,6 +53,13 @@ export function ConsultantResultsPage() {
           // Role-based matching
           setIsRoleBased(true);
           const data = await matchConsultantsByRoles(roles);
+          console.log("Role match response:", data);
+          console.log("Role results:", data.roles);
+          if (data.roles) {
+            data.roles.forEach((roleResult, idx) => {
+              console.log(`Role ${idx} (${roleResult.role.title}):`, roleResult.consultants?.length || 0, "consultants");
+            });
+          }
           setRoleResults(data.roles || []);
         } else if (projectDescription) {
           // Legacy single query matching
@@ -262,22 +269,53 @@ export function ConsultantResultsPage() {
             ) : isRoleBased ? (
               // Role-based results display
               (() => {
-                const rolesWithConsultants = roleResults.filter((roleResult) => roleResult.consultants.length > 0);
-                return rolesWithConsultants.length === 0 ? (
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex flex-col items-center justify-center py-12">
-                        <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground text-center text-lg font-semibold">
-                          No consultants found for the specified roles.
-                        </p>
-                        <p className="text-muted-foreground text-center text-sm mt-2">
-                          Try adjusting your requirements or check back later.
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
+                // Filter out roles with no consultants, but log for debugging
+                const rolesWithConsultants = roleResults.filter((roleResult) => {
+                  const consultants = roleResult.consultants;
+                  const hasConsultants = consultants && Array.isArray(consultants) && consultants.length > 0;
+                  if (!hasConsultants) {
+                    console.log(`Filtering out role "${roleResult.role.title}" - no consultants (length: ${consultants?.length || 'undefined'})`);
+                  }
+                  return hasConsultants;
+                });
+                
+                // Show message if no roles have consultants
+                if (rolesWithConsultants.length === 0 && roleResults.length > 0) {
+                  return (
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <Users className="h-12 w-12 text-muted-foreground mb-4" />
+                          <p className="text-muted-foreground text-center text-lg font-semibold">
+                            No consultants found for the specified roles.
+                          </p>
+                          <p className="text-muted-foreground text-center text-sm mt-2">
+                            Try adjusting your requirements or check back later.
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                
+                // Show message if no roles at all
+                if (roleResults.length === 0) {
+                  return (
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <Users className="h-12 w-12 text-muted-foreground mb-4" />
+                          <p className="text-muted-foreground text-center text-lg font-semibold">
+                            No roles specified.
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                
+                // Display roles with consultants
+                return (
                   <div className="space-y-8">
                     {rolesWithConsultants.map((roleResult, roleIndex) => (
                     <div key={roleIndex} className="space-y-4">
