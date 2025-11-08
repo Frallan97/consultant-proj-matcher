@@ -583,17 +583,17 @@ async def match_consultants_by_roles(request: RoleMatchRequest):
         
         for role_query in request.roles:
             # Perform vector search for this role
-            # Use certainty (0-1) instead of distance for better score differentiation
-            # Certainty represents similarity: 1.0 = identical, 0.0 = completely different
-            MIN_CERTAINTY = 0.2  # Lower threshold to get more diverse results
+            # Remove certainty threshold to get ALL matches, even if they're bad
+            # We'll sort by score and take the top matches
+            print(f"Searching for role '{role_query.title}' with query: '{role_query.query}'")
             
-            # Fetch a large pool of candidates to score them all, then limit to top 3
+            # First try vector search without certainty threshold to get all matches
             response = (
                 client.query
                 .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
                 .with_near_text({
-                    "concepts": [role_query.query],
-                    "certainty": MIN_CERTAINTY
+                    "concepts": [role_query.query]
+                    # No certainty threshold - get all matches
                 })
                 .with_additional(["id", "certainty"])
                 .with_limit(100)  # Get large pool to score all candidates
@@ -630,9 +630,9 @@ async def match_consultants_by_roles(request: RoleMatchRequest):
                     # Certainty ranges from 0.0 (completely different) to 1.0 (identical)
                     certainty_raw = additional.get("certainty", None)
                     try:
-                        certainty = float(certainty_raw) if certainty_raw is not None else MIN_CERTAINTY
+                        certainty = float(certainty_raw) if certainty_raw is not None else 0.0
                     except (ValueError, TypeError):
-                        certainty = MIN_CERTAINTY
+                        certainty = 0.0
                     
                     # Normalize certainty to 0-100% scale using the full range of results
                     # This ensures better differentiation between candidates
@@ -665,6 +665,51 @@ async def match_consultants_by_roles(request: RoleMatchRequest):
                         pass
                     
                     consultants.append(consultant_data)
+            
+            # If no matches found, try to get any consultants as fallback
+            if len(consultants) == 0:
+                print(f"No vector matches found for '{role_query.title}', trying fallback query...")
+                try:
+                    # Fallback: get all consultants without vector search
+                    fallback_response = (
+                        client.query
+                        .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
+                        .with_additional(["id"])
+                        .with_limit(10)  # Get top 10 consultants as fallback
+                        .do()
+                    )
+                    
+                    if "data" in fallback_response and "Get" in fallback_response["data"] and "Consultant" in fallback_response["data"]["Get"]:
+                        fallback_results = fallback_response["data"]["Get"]["Consultant"]
+                        print(f"Found {len(fallback_results)} fallback consultants for role '{role_query.title}'")
+                        
+                        for consultant in fallback_results:
+                            consultant_id = consultant.get("_additional", {}).get("id")
+                            
+                            consultant_data = {
+                                "id": consultant_id,
+                                "name": consultant.get("name", ""),
+                                "email": consultant.get("email", ""),
+                                "phone": consultant.get("phone", ""),
+                                "skills": consultant.get("skills", []),
+                                "availability": consultant.get("availability", "available"),
+                                "experience": consultant.get("experience", ""),
+                                "education": consultant.get("education", ""),
+                                "matchScore": 10.0,  # Low score for fallback matches
+                                "resumeId": None
+                            }
+                            
+                            # Check if PDF exists
+                            try:
+                                pdf_path = storage.get_path(consultant_id)
+                                if os.path.exists(pdf_path):
+                                    consultant_data["resumeId"] = consultant_id
+                            except:
+                                pass
+                            
+                            consultants.append(consultant_data)
+                except Exception as e:
+                    print(f"Error in fallback query for '{role_query.title}': {e}")
             
             # Now limit to top 3 AFTER calculating scores for all candidates
             consultants = sorted(consultants, key=lambda x: x["matchScore"], reverse=True)[:3]
