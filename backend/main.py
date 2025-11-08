@@ -213,17 +213,27 @@ async def upload_resume(file: UploadFile = File(...)) -> Dict[str, Any]:
     if not consultant_service:
         raise HTTPException(status_code=503, detail="Weaviate client not available")
     
-    # Validate file type
-    if not file.filename or not file.filename.endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="File must be a PDF")
-    
     # Generate UUID for consultant
     consultant_id = str(uuid.uuid4())
     
     try:
         # Read PDF bytes
         pdf_bytes = await file.read()
-        logger.info(f"Uploading resume: {file.filename} ({len(pdf_bytes)} bytes)")
+        
+        # Validate file type - check filename, content type, and PDF magic bytes
+        filename = file.filename or ""
+        content_type = file.content_type or ""
+        is_pdf_filename = filename.endswith('.pdf')
+        is_pdf_content_type = content_type == 'application/pdf' or 'pdf' in content_type.lower()
+        is_pdf_magic_bytes = pdf_bytes.startswith(b'%PDF')
+        
+        if not (is_pdf_filename or is_pdf_content_type or is_pdf_magic_bytes):
+            raise HTTPException(status_code=400, detail="File must be a PDF")
+        
+        if not is_pdf_magic_bytes:
+            raise HTTPException(status_code=400, detail="File does not appear to be a valid PDF")
+        
+        logger.info(f"Uploading resume: {filename} ({len(pdf_bytes)} bytes)")
         
         # Parse resume - returns ConsultantData (pass bytes directly)
         consultant_data = parse_resume_pdf(pdf_bytes)
@@ -245,7 +255,7 @@ async def upload_resume(file: UploadFile = File(...)) -> Dict[str, Any]:
         }
     
     except ValueError as e:
-        # Clean up PDF if parsing failed
+        # Clean up PDF if parsing failed (client error - invalid PDF format)
         try:
             pdf_path = storage.get_path(consultant_id)
             if os.path.exists(pdf_path):
@@ -254,6 +264,19 @@ async def upload_resume(file: UploadFile = File(...)) -> Dict[str, Any]:
             logger.warning(f"Failed to cleanup PDF after parse error: {cleanup_error}")
         logger.error(f"Error parsing resume: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Error parsing resume: {str(e)}")
+    except RuntimeError as e:
+        # RuntimeError from OpenAI API failures should return 500
+        try:
+            pdf_path = storage.get_path(consultant_id)
+            if os.path.exists(pdf_path):
+                os.unlink(pdf_path)
+        except (OSError, ValueError) as cleanup_error:
+            logger.warning(f"Failed to cleanup PDF after OpenAI error: {cleanup_error}")
+        logger.error(f"OpenAI API error during resume parsing: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error processing resume. Please try again later.")
+    except HTTPException:
+        # Re-raise HTTPException as-is (e.g., validation errors)
+        raise
     except Exception as e:
         # Clean up PDF if Weaviate insertion failed
         try:

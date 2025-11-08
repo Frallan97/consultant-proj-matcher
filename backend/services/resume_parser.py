@@ -184,7 +184,8 @@ def parse_resume_pdf(pdf_bytes: bytes) -> ConsultantData:
     except OpenAIError as e:
         # Log the full error for debugging
         logger.error("OpenAI API error during resume parsing", exc_info=True)
-        raise ValueError(f"OpenAI API error: {str(e)}")
+        # Raise RuntimeError for OpenAI errors so they get caught as 500 in main.py
+        raise RuntimeError(f"OpenAI API error: {str(e)}")
     except Exception as e:
         # Let other exceptions bubble up (will be caught as 500 in main.py)
         logger.error("Unexpected error during resume parsing", exc_info=True)

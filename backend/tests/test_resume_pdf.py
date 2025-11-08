@@ -22,6 +22,7 @@ async def test_get_resume_pdf_success(clean_weaviate, test_app, sample_pdf_bytes
         # Upload
         files = {"file": ("resume.pdf", sample_pdf_bytes, "application/pdf")}
         upload_response = await client.post("/api/resumes/upload", files=files)
+        assert upload_response.status_code == 200, f"Upload failed with status {upload_response.status_code}: {upload_response.text}"
         resume_id = upload_response.json()["id"]
         
         # Get PDF

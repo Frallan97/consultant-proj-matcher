@@ -58,7 +58,9 @@ async def test_upload_resume_invalid_file_type(test_app, sample_pdf_bytes):
 async def test_upload_resume_openai_failure(test_app, sample_pdf_bytes, mock_openai_resume_parser):
     """Test upload when OpenAI API fails."""
     # Make OpenAI raise an exception
-    mock_openai_resume_parser.chat.completions.create.side_effect = Exception("OpenAI API error")
+    from openai import OpenAIError
+    # OpenAIError accepts a message as the first argument
+    mock_openai_resume_parser.chat.completions.create.side_effect = OpenAIError("OpenAI API error")
     
     async with test_app as client:
         files = {"file": ("resume.pdf", sample_pdf_bytes, "application/pdf")}
