@@ -23,7 +23,7 @@ schema = {
         },
         {
             "name": "skills",
-            "dataType": ["string"],
+            "dataType": ["string[]"],
             "description": "List of skills the consultant has"
         },
         {
