@@ -200,30 +200,41 @@ def mock_openai_resume_parser(monkeypatch):
     """Mock OpenAI for resume parsing."""
     # Set API key so the function doesn't fail on API key check
     monkeypatch.setenv("OPENAI_APIKEY", "test-key")
-    # Also patch os.getenv in the resume_parser module to ensure it picks up the test key
-    # Use start() and stop() to keep patches active throughout the test
-    os_getenv_patcher = patch('services.resume_parser.os.getenv', return_value="test-key")
-    openai_patcher = patch('services.resume_parser.OpenAI')
     
-    os_getenv_patcher.start()
-    mock_openai_class = openai_patcher.start()
+    # Patch os.getenv in the resume_parser module to ensure it picks up the test key
+    # Import the module to get a reference to it (it may already be imported)
+    import services.resume_parser as resume_parser_module
+    import os as os_module
     
-    mock_client = MagicMock()
-    mock_openai_class.return_value = mock_client
+    # Store original getenv
+    original_getenv = os_module.getenv
     
-    # Default successful response
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = '{"name": "John Doe", "email": "john@example.com", "phone": "123-456-7890", "skills": ["Python", "FastAPI"], "experience": "5 years", "education": "BS Computer Science"}'
-    mock_response.choices[0].finish_reason = "stop"
+    def mock_getenv(key, default=None):
+        if key == "OPENAI_APIKEY":
+            return "test-key"
+        return original_getenv(key, default)
     
-    mock_client.chat.completions.create.return_value = mock_response
+    # Patch os.getenv in the resume_parser module's namespace
+    monkeypatch.setattr(resume_parser_module.os, "getenv", mock_getenv)
     
-    try:
+    # Also patch the global os.getenv to be safe (in case it's used directly)
+    # But we'll restore it after, so we only patch the module's os
+    # The monkeypatch.setattr will automatically restore it after the test
+    
+    # Patch OpenAI class
+    with patch('services.resume_parser.OpenAI') as mock_openai_class:
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        
+        # Default successful response
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = '{"name": "John Doe", "email": "john@example.com", "phone": "123-456-7890", "skills": ["Python", "FastAPI"], "experience": "5 years", "education": "BS Computer Science"}'
+        mock_response.choices[0].finish_reason = "stop"
+        
+        mock_client.chat.completions.create.return_value = mock_response
+        
         yield mock_client
-    finally:
-        openai_patcher.stop()
-        os_getenv_patcher.stop()
 
 
 @pytest.fixture
