@@ -102,18 +102,18 @@ async def match_consultants(project: ProjectDescription):
     try:
         # Use Weaviate's pure vector search (semantic similarity)
         # .with_near_text() generates a vector from the query text and compares it to stored object vectors
-        # Distance threshold: 0.3 for cosine distance (filters out poor matches)
-        # Cosine distance ranges from 0 (identical) to 2 (opposite)
-        MAX_DISTANCE = 0.3  # Only return matches with distance <= 0.3 (good matches)
+        # Use certainty (0-1) instead of distance for better score differentiation
+        # Certainty represents similarity: 1.0 = identical, 0.0 = completely different
+        MIN_CERTAINTY = 0.5  # Minimum certainty threshold to filter poor matches
         
         response = (
             client.query
             .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
             .with_near_text({
                 "concepts": [project.projectDescription],
-                "distance": MAX_DISTANCE
+                "certainty": MIN_CERTAINTY
             })
-            .with_additional(["id", "distance"])
+            .with_additional(["id", "certainty"])
             .with_limit(3)  # Only return top 3 matches
             .do()
         )
@@ -122,24 +122,42 @@ async def match_consultants(project: ProjectDescription):
         if "data" in response and "Get" in response["data"] and "Consultant" in response["data"]["Get"]:
             results = response["data"]["Get"]["Consultant"]
             
+            # Collect all certainties for normalization
+            certainties = []
+            for consultant in results:
+                additional = consultant.get("_additional", {})
+                certainty_raw = additional.get("certainty", None)
+                if certainty_raw is not None:
+                    try:
+                        certainties.append(float(certainty_raw))
+                    except (ValueError, TypeError):
+                        pass
+            
+            # Normalize scores to use full 0-100% range
+            min_certainty = min(certainties) if certainties else 0.0
+            max_certainty = max(certainties) if certainties else 1.0
+            certainty_range = max_certainty - min_certainty if max_certainty > min_certainty else 1.0
+            
             for consultant in results:
                 consultant_id = consultant.get("_additional", {}).get("id")
                 additional = consultant.get("_additional", {})
                 
-                # Get distance from Weaviate vector search
-                # Distance is cosine distance: 0 = identical, higher = less similar
-                # Convert distance to similarity score: similarity = 1 - distance
-                # Then normalize to 0-100 scale
-                distance_raw = additional.get("distance", None)
+                # Get certainty from Weaviate vector search
+                # Certainty ranges from 0.0 (completely different) to 1.0 (identical)
+                certainty_raw = additional.get("certainty", None)
                 try:
-                    distance = float(distance_raw) if distance_raw is not None else MAX_DISTANCE
+                    certainty = float(certainty_raw) if certainty_raw is not None else MIN_CERTAINTY
                 except (ValueError, TypeError):
-                    distance = MAX_DISTANCE
+                    certainty = MIN_CERTAINTY
                 
-                # Convert distance to similarity score (0-100)
-                # For cosine distance: similarity = 1 - distance, clamped to 0-1
-                similarity = max(0.0, min(1.0, 1.0 - distance))
-                match_score = round(similarity * 100, 1)
+                # Normalize certainty to 0-100% scale using the full range of results
+                # This ensures better differentiation between candidates
+                if certainty_range > 0:
+                    normalized_certainty = (certainty - min_certainty) / certainty_range
+                    match_score = round(normalized_certainty * 100, 1)
+                else:
+                    # Fallback: use certainty directly if all values are the same
+                    match_score = round(certainty * 100, 1)
                 
                 consultant_data = {
                     "id": consultant_id,
@@ -545,17 +563,18 @@ async def match_consultants_by_roles(request: RoleMatchRequest):
         
         for role_query in request.roles:
             # Perform vector search for this role
-            # Distance threshold: 0.3 for cosine distance (filters out poor matches)
-            MAX_DISTANCE = 0.3  # Only return matches with distance <= 0.3 (good matches)
+            # Use certainty (0-1) instead of distance for better score differentiation
+            # Certainty represents similarity: 1.0 = identical, 0.0 = completely different
+            MIN_CERTAINTY = 0.5  # Minimum certainty threshold to filter poor matches
             
             response = (
                 client.query
                 .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
                 .with_near_text({
                     "concepts": [role_query.query],
-                    "distance": MAX_DISTANCE
+                    "certainty": MIN_CERTAINTY
                 })
-                .with_additional(["id", "distance"])
+                .with_additional(["id", "certainty"])
                 .with_limit(3)  # Only return top 3 matches per role
                 .do()
             )
@@ -564,24 +583,42 @@ async def match_consultants_by_roles(request: RoleMatchRequest):
             if "data" in response and "Get" in response["data"] and "Consultant" in response["data"]["Get"]:
                 results = response["data"]["Get"]["Consultant"]
                 
+                # Collect all certainties for normalization
+                certainties = []
+                for consultant in results:
+                    additional = consultant.get("_additional", {})
+                    certainty_raw = additional.get("certainty", None)
+                    if certainty_raw is not None:
+                        try:
+                            certainties.append(float(certainty_raw))
+                        except (ValueError, TypeError):
+                            pass
+                
+                # Normalize scores to use full 0-100% range
+                min_certainty = min(certainties) if certainties else 0.0
+                max_certainty = max(certainties) if certainties else 1.0
+                certainty_range = max_certainty - min_certainty if max_certainty > min_certainty else 1.0
+                
                 for consultant in results:
                     consultant_id = consultant.get("_additional", {}).get("id")
                     additional = consultant.get("_additional", {})
                     
-                    # Get distance from Weaviate vector search
-                    # Distance is cosine distance: 0 = identical, higher = less similar
-                    # Convert distance to similarity score: similarity = 1 - distance
-                    # Then normalize to 0-100 scale
-                    distance_raw = additional.get("distance", None)
+                    # Get certainty from Weaviate vector search
+                    # Certainty ranges from 0.0 (completely different) to 1.0 (identical)
+                    certainty_raw = additional.get("certainty", None)
                     try:
-                        distance = float(distance_raw) if distance_raw is not None else MAX_DISTANCE
+                        certainty = float(certainty_raw) if certainty_raw is not None else MIN_CERTAINTY
                     except (ValueError, TypeError):
-                        distance = MAX_DISTANCE
+                        certainty = MIN_CERTAINTY
                     
-                    # Convert distance to similarity score (0-100)
-                    # For cosine distance: similarity = 1 - distance, clamped to 0-1
-                    similarity = max(0.0, min(1.0, 1.0 - distance))
-                    match_score = round(similarity * 100, 1)
+                    # Normalize certainty to 0-100% scale using the full range of results
+                    # This ensures better differentiation between candidates
+                    if certainty_range > 0:
+                        normalized_certainty = (certainty - min_certainty) / certainty_range
+                        match_score = round(normalized_certainty * 100, 1)
+                    else:
+                        # Fallback: use certainty directly if all values are the same
+                        match_score = round(certainty * 100, 1)
                     
                     consultant_data = {
                         "id": consultant_id,
