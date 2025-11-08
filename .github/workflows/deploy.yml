@@ -172,12 +172,15 @@ jobs:
             IMAGE_TAG="${{ env.IMAGE_TAG }}"
             
             echo "Loading Docker images..."
-            docker load -i /tmp/frontend-image.tar.gz
-            docker load -i /tmp/backend-image.tar.gz
+            FRONTEND_LOADED=\$(docker load -i /tmp/frontend-image.tar.gz | grep "Loaded image" | awk '{print \$3}' | head -1)
+            BACKEND_LOADED=\$(docker load -i /tmp/backend-image.tar.gz | grep "Loaded image" | awk '{print \$3}' | head -1)
+            
+            echo "Frontend image loaded as: \$FRONTEND_LOADED"
+            echo "Backend image loaded as: \$BACKEND_LOADED"
             
             echo "Tagging images as latest..."
-            docker tag ${FRONTEND_IMAGE}:${IMAGE_TAG} ${FRONTEND_IMAGE}:latest
-            docker tag ${BACKEND_IMAGE}:${IMAGE_TAG} ${BACKEND_IMAGE}:latest
+            docker tag "\$FRONTEND_LOADED" \${FRONTEND_IMAGE}:latest
+            docker tag "\$BACKEND_LOADED" \${BACKEND_IMAGE}:latest
             
             echo "Setting up deployment directory..."
             DEPLOY_DIR=~/projmatch
