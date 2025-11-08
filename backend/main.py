@@ -1,6 +1,6 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import weaviate
@@ -83,7 +83,23 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    """
+    Health check endpoint that verifies database schema is initialized.
+    Returns 503 if schema is not available.
+    """
+    if not client:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "unhealthy", "reason": "Weaviate client not available"}
+        )
+    
+    if not schema_exists():
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "unhealthy", "reason": "Database schema not initialized"}
+        )
+    
+    return {"status": "healthy", "database": "initialized"}
 
 @app.post("/api/consultants/match", response_model=ConsultantResponse)
 async def match_consultants(project: ProjectDescription):

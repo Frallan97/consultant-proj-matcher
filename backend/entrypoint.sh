@@ -24,9 +24,11 @@ done
 
 # Initialize Weaviate schema
 echo "Initializing Weaviate schema..."
-python scripts/init_weaviate.py || {
-  echo "Warning: Failed to initialize Weaviate schema, continuing anyway..."
-}
+if ! python scripts/init_weaviate.py; then
+  echo "ERROR: Failed to initialize Weaviate schema. Exiting..."
+  exit 1
+fi
+echo "Schema initialization successful"
 
 # Start the application
 echo "Starting FastAPI application..."

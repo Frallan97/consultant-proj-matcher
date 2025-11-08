@@ -160,16 +160,35 @@ resume_schema = {
 schema = client.schema.get()
 class_names = [c["class"] for c in schema.get("classes", [])]
 
+consultant_created = False
 if "Consultant" in class_names:
     print("Consultant class already exists - preserving existing data")
     print("Note: If you need to update the schema (e.g., change embedding model), you'll need to manually migrate the data")
+    consultant_created = True
 else:
     # Create the Consultant class
     try:
         client.schema.create_class(consultant_schema)
         print("Successfully created Consultant class in Weaviate")
+        consultant_created = True
     except Exception as e:
         print(f"Error creating Consultant schema: {e}")
+        import sys
+        sys.exit(1)
+
+# Verify Consultant class exists (critical for application)
+if not consultant_created:
+    print("ERROR: Consultant class was not created and does not exist")
+    import sys
+    sys.exit(1)
+
+# Verify Consultant class exists in schema
+schema_after = client.schema.get()
+class_names_after = [c["class"] for c in schema_after.get("classes", [])]
+if "Consultant" not in class_names_after:
+    print("ERROR: Consultant class verification failed - class does not exist in schema")
+    import sys
+    sys.exit(1)
 
 # Check if Resume class exists
 if "Resume" in class_names:
@@ -180,5 +199,8 @@ else:
         client.schema.create_class(resume_schema)
         print("Successfully created Resume class in Weaviate")
     except Exception as e:
-        print(f"Error creating Resume schema: {e}")
+        print(f"Warning: Error creating Resume schema: {e}")
+        # Resume schema is not critical, so we don't fail on this
+
+print("Schema initialization completed successfully")
 
