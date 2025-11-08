@@ -11,9 +11,31 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 load_dotenv()
 
-weaviate_url = os.getenv("WEAVIATE_URL", "http://localhost:8080")
+# Default to weaviate service name for Docker Compose, fallback to localhost for local dev
+weaviate_url = os.getenv("WEAVIATE_URL", "http://weaviate:8080")
 
-client = weaviate.Client(url=weaviate_url)
+print(f"Connecting to Weaviate at {weaviate_url}")
+
+# Wait for Weaviate to be ready (with retries)
+import time
+max_retries = 30
+retry_delay = 2
+
+for attempt in range(max_retries):
+    try:
+        client = weaviate.Client(url=weaviate_url)
+        # Test connection by checking schema
+        client.schema.get()
+        print("Successfully connected to Weaviate")
+        break
+    except Exception as e:
+        if attempt < max_retries - 1:
+            print(f"Connection attempt {attempt + 1}/{max_retries} failed: {e}")
+            print(f"Retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+        else:
+            print(f"Failed to connect to Weaviate after {max_retries} attempts: {e}")
+            raise
 
 # Mock consultant data
 mock_consultants = [
@@ -81,8 +103,6 @@ mock_consultants = [
 
 def insert_consultants():
     """Insert mock consultants into Weaviate."""
-    print(f"Connecting to Weaviate at {weaviate_url}")
-    
     # Check if class exists
     try:
         schema = client.schema.get()
