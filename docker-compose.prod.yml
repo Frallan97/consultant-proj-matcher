@@ -55,6 +55,7 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-https://projmatch.vibeoholic.com}
       - UPLOAD_DIR=${UPLOAD_DIR:-/app/uploads/resumes}
       - OPENAI_APIKEY=${OPENAI_APIKEY}
+      - SEED_MOCK_DATA=${SEED_MOCK_DATA:-false}
     depends_on:
       - weaviate
     healthcheck:

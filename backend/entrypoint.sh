@@ -30,6 +30,16 @@ if ! python scripts/init_weaviate.py; then
 fi
 echo "Schema initialization successful"
 
+# Seed mock data if SEED_MOCK_DATA is set to "true"
+if [ "${SEED_MOCK_DATA:-false}" = "true" ]; then
+  echo "Seeding mock data..."
+  if python scripts/insert_mock_data.py; then
+    echo "Mock data seeding successful"
+  else
+    echo "Warning: Failed to seed mock data, continuing anyway..."
+  fi
+fi
+
 # Start the application
 echo "Starting FastAPI application..."
 exec uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2

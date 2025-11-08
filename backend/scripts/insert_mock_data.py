@@ -144,6 +144,18 @@ def insert_consultants():
         print(f"Error checking schema: {e}")
         return
     
+    # Check if database already has consultants
+    try:
+        result = client.query.get("Consultant", ["name"]).with_limit(1).do()
+        existing_count = len(result.get("data", {}).get("Get", {}).get("Consultant", []))
+        if existing_count > 0:
+            print(f"Database already contains consultant(s). Skipping mock data insertion.")
+            print("To force re-seeding, delete existing data first.")
+            return
+    except Exception as e:
+        print(f"Warning: Could not check existing data: {e}")
+        # Continue anyway
+    
     # Batch insert
     with client.batch as batch:
         batch.batch_size = 10

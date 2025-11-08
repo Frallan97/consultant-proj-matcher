@@ -30,6 +30,7 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8080}
       - UPLOAD_DIR=${UPLOAD_DIR:-uploads/resumes}
       - OPENAI_APIKEY=${OPENAI_APIKEY}
+      - SEED_MOCK_DATA=${SEED_MOCK_DATA:-true}
     depends_on:
       - weaviate
     volumes:

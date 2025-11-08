@@ -139,22 +139,6 @@ async def match_consultants(project: ProjectDescription):
         if "data" in response and "Get" in response["data"] and "Consultant" in response["data"]["Get"]:
             results = response["data"]["Get"]["Consultant"]
             
-            # Collect all certainties for normalization across all candidates
-            certainties = []
-            for consultant in results:
-                additional = consultant.get("_additional", {})
-                certainty_raw = additional.get("certainty", None)
-                if certainty_raw is not None:
-                    try:
-                        certainties.append(float(certainty_raw))
-                    except (ValueError, TypeError):
-                        pass
-            
-            # Normalize scores to use full 0-100% range based on all candidates
-            min_certainty = min(certainties) if certainties else 0.0
-            max_certainty = max(certainties) if certainties else 1.0
-            certainty_range = max_certainty - min_certainty if max_certainty > min_certainty else 1.0
-            
             # Calculate scores for ALL candidates first
             for consultant in results:
                 consultant_id = consultant.get("_additional", {}).get("id")
@@ -168,14 +152,10 @@ async def match_consultants(project: ProjectDescription):
                 except (ValueError, TypeError):
                     certainty = MIN_CERTAINTY
                 
-                # Normalize certainty to 0-100% scale using the full range of results
-                # This ensures better differentiation between candidates
-                if certainty_range > 0:
-                    normalized_certainty = (certainty - min_certainty) / certainty_range
-                    match_score = round(normalized_certainty * 100, 1)
-                else:
-                    # Fallback: use certainty directly if all values are the same
-                    match_score = round(certainty * 100, 1)
+                # Map certainty 0.0-0.9 to 0-90% (cap at 90%)
+                # This provides more realistic match scores - even the best matches rarely exceed 90%
+                # Anything above 0.9 certainty is still capped at 90%
+                match_score = min(round(certainty * 100, 1), 90.0)
                 
                 consultant_data = {
                     "id": consultant_id,
@@ -621,22 +601,6 @@ async def match_consultants_by_roles(request: RoleMatchRequest):
                 results = response["data"]["Get"]["Consultant"]
                 print(f"Found {len(results)} raw results for role '{role_query.title}'")
                 
-                # Collect all certainties for normalization across all candidates
-                certainties = []
-                for consultant in results:
-                    additional = consultant.get("_additional", {})
-                    certainty_raw = additional.get("certainty", None)
-                    if certainty_raw is not None:
-                        try:
-                            certainties.append(float(certainty_raw))
-                        except (ValueError, TypeError):
-                            pass
-                
-                # Normalize scores to use full 0-100% range based on all candidates
-                min_certainty = min(certainties) if certainties else 0.0
-                max_certainty = max(certainties) if certainties else 1.0
-                certainty_range = max_certainty - min_certainty if max_certainty > min_certainty else 1.0
-                
                 # Calculate scores for ALL candidates first
                 for consultant in results:
                     consultant_id = consultant.get("_additional", {}).get("id")
@@ -650,14 +614,10 @@ async def match_consultants_by_roles(request: RoleMatchRequest):
                     except (ValueError, TypeError):
                         certainty = 0.0
                     
-                    # Normalize certainty to 0-100% scale using the full range of results
-                    # This ensures better differentiation between candidates
-                    if certainty_range > 0:
-                        normalized_certainty = (certainty - min_certainty) / certainty_range
-                        match_score = round(normalized_certainty * 100, 1)
-                    else:
-                        # Fallback: use certainty directly if all values are the same
-                        match_score = round(certainty * 100, 1)
+                    # Map certainty 0.0-0.9 to 0-90% (cap at 90%)
+                    # This provides more realistic match scores - even the best matches rarely exceed 90%
+                    # Anything above 0.9 certainty is still capped at 90%
+                    match_score = min(round(certainty * 100, 1), 90.0)
                     
                     consultant_data = {
                         "id": consultant_id,
