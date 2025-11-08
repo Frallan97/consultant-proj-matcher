@@ -1,15 +1,5 @@
 projmatch.vibeoholic.com {
-    # Reverse proxy to frontend
-    handle / {
-        reverse_proxy frontend:80 {
-            header_up Host {host}
-            header_up X-Real-IP {remote}
-            header_up X-Forwarded-For {remote}
-            header_up X-Forwarded-Proto {scheme}
-        }
-    }
-
-    # Reverse proxy to backend API
+    # Reverse proxy to backend API (must come before frontend)
     handle /api/* {
         reverse_proxy backend:8000 {
             header_up Host {host}
@@ -19,14 +9,43 @@ projmatch.vibeoholic.com {
         }
     }
 
-    # Logging
-    log {
-        output stdout
-        format console
+    # Handle JavaScript files with explicit MIME type
+    @js {
+        path *.js
+    }
+    handle @js {
+        reverse_proxy frontend:80 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+        header Content-Type "application/javascript; charset=utf-8"
     }
 
-    # Enable compression
-    encode gzip zstd
+    # Handle CSS files with explicit MIME type
+    @css {
+        path *.css
+    }
+    handle @css {
+        reverse_proxy frontend:80 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+        header Content-Type "text/css; charset=utf-8"
+    }
+
+    # Reverse proxy to frontend (catch-all)
+    handle / {
+        reverse_proxy frontend:80 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
 
     # Security headers
     header {
@@ -41,5 +60,14 @@ projmatch.vibeoholic.com {
         # Referrer policy
         Referrer-Policy "strict-origin-when-cross-origin"
     }
+
+    # Logging
+    log {
+        output stdout
+        format console
+    }
+
+    # Enable compression
+    encode gzip zstd
 }
 
