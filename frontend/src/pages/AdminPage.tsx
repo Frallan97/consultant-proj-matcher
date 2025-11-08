@@ -212,20 +212,20 @@ export function AdminPage() {
 
   return (
     <div className="w-full bg-background overflow-x-hidden">
-      <div className="container mx-auto px-4 py-8 md:py-16 max-w-6xl">
-        <div className="space-y-6">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 md:py-16 max-w-6xl">
+        <div className="space-y-4 sm:space-y-6">
           {/* PDF Upload Card */}
           <Card className="shadow-md">
-            <CardHeader>
-              <CardTitle className="text-2xl font-semibold flex items-center gap-2">
-                <Upload className="h-6 w-6" />
+            <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
+              <CardTitle className="text-xl sm:text-2xl font-semibold flex items-center gap-2">
+                <Upload className="h-5 w-5 sm:h-6 sm:w-6" />
                 Upload Resume PDF
               </CardTitle>
-              <p className="text-muted-foreground text-sm mt-1">
+              <p className="text-muted-foreground text-xs sm:text-sm mt-1">
                 Upload a PDF resume to add it to the consultant database. Drag and drop or click to select.
               </p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
               <div className="space-y-4">
                 <input
                   ref={fileInputRef}
@@ -257,27 +257,29 @@ export function AdminPage() {
                       }
                     }
                   }}
-                  className="border border-dashed border-border/50 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                  className="border border-dashed border-border/50 rounded-lg p-4 sm:p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
                 >
-                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm font-medium mb-1">Click to upload or drag and drop</p>
+                  <Upload className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-xs sm:text-sm font-medium mb-1">Click to upload or drag and drop</p>
                   <p className="text-xs text-muted-foreground">PDF files only</p>
                 </div>
-                <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                   <Button
                     onClick={handleUploadClick}
                     disabled={uploading}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 text-xs sm:text-sm px-3 sm:px-4"
                   >
                     {uploading ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Uploading...
+                        <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                        <span className="hidden sm:inline">Uploading...</span>
+                        <span className="sm:hidden">Uploading</span>
                       </>
                     ) : (
                       <>
-                        <Upload className="h-4 w-4" />
-                        Select PDF File
+                        <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline">Select PDF File</span>
+                        <span className="sm:hidden">Select File</span>
                       </>
                     )}
                   </Button>
@@ -300,13 +302,13 @@ export function AdminPage() {
 
           {/* Consultants List Card */}
           <Card className="shadow-md">
-            <CardHeader>
-              <div className="flex items-center justify-between flex-wrap gap-4">
+            <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
+              <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-4">
                 <div>
-                  <CardTitle className="text-3xl md:text-4xl font-semibold text-primary">
+                  <CardTitle className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-primary">
                     Database Overview
                   </CardTitle>
-                  <p className="text-muted-foreground mt-2">
+                  <p className="text-muted-foreground mt-1 sm:mt-2 text-xs sm:text-sm">
                     Manage consultants in the database
                   </p>
                 </div>
@@ -316,23 +318,26 @@ export function AdminPage() {
                     disabled={deleting}
                     variant="destructive"
                     size="lg"
+                    className="text-xs sm:text-sm px-3 sm:px-4"
                   >
                     {deleting ? (
                       <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Deleting...
+                        <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                        <span className="hidden sm:inline">Deleting...</span>
+                        <span className="sm:hidden">Deleting</span>
                       </>
                     ) : (
                       <>
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Selected ({selectedIds.size})
+                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Delete Selected ({selectedIds.size})</span>
+                        <span className="sm:hidden">Delete ({selectedIds.size})</span>
                       </>
                     )}
                   </Button>
                 )}
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -350,13 +355,13 @@ export function AdminPage() {
                 <p className="text-muted-foreground">No consultants found in the database.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Total: {consultants.length} consultant(s) | Showing {startIndex + 1}-{Math.min(endIndex, consultants.length)} of {consultants.length}
                   </p>
                   <div className="flex items-center gap-2">
-                    <label htmlFor="page-size" className="text-sm text-muted-foreground">
+                    <label htmlFor="page-size" className="text-xs sm:text-sm text-muted-foreground">
                       Per page:
                     </label>
                     <select
@@ -366,7 +371,7 @@ export function AdminPage() {
                         setPageSize(Number(e.target.value));
                         setCurrentPage(1);
                       }}
-                      className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+                      className="rounded-md border border-input bg-background px-2 py-1 text-xs sm:text-sm"
                     >
                       {PAGINATION.PAGE_SIZE_OPTIONS.map((size) => (
                         <option key={size} value={size}>
@@ -377,11 +382,11 @@ export function AdminPage() {
                   </div>
                 </div>
                 <div className="border border-border/50 rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
+                  <div className="overflow-x-auto -mx-3 sm:mx-0">
+                    <table className="w-full min-w-[600px]">
                       <thead className="bg-muted/50 border-b border-border/50">
                         <tr>
-                          <th className="px-3 py-3 text-left">
+                          <th className="px-2 sm:px-3 py-2 sm:py-3 text-left">
                             <input
                               type="checkbox"
                               checked={allVisibleSelected}
@@ -389,11 +394,11 @@ export function AdminPage() {
                               className="rounded border-input cursor-pointer"
                             />
                           </th>
-                          <th className="px-3 py-3 text-left text-sm font-medium">Name</th>
-                          <th className="px-3 py-3 text-left text-sm font-medium">Skills</th>
-                          <th className="px-3 py-3 text-left text-sm font-medium">Availability</th>
-                          <th className="px-3 py-3 text-center text-sm font-medium">Resume</th>
-                          <th className="px-3 py-3 text-right text-sm font-medium">Actions</th>
+                          <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">Name</th>
+                          <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">Skills</th>
+                          <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">Availability</th>
+                          <th className="px-2 sm:px-3 py-2 sm:py-3 text-center text-xs sm:text-sm font-medium">Resume</th>
+                          <th className="px-2 sm:px-3 py-2 sm:py-3 text-right text-xs sm:text-sm font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/50">
@@ -407,7 +412,7 @@ export function AdminPage() {
                                 index % 2 === 0 ? "bg-background" : "bg-muted/20"
                               } ${isSelected ? "bg-primary/10" : ""}`}
                             >
-                              <td className="px-3 py-0.5">
+                              <td className="px-2 sm:px-3 py-1 sm:py-2">
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
@@ -420,30 +425,30 @@ export function AdminPage() {
                                   className="rounded border-input disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                               </td>
-                              <td className="px-3 py-0.5 text-sm leading-tight">{consultant.name}</td>
-                              <td className="px-3 py-0.5">
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm leading-tight">{consultant.name}</td>
+                              <td className="px-2 sm:px-3 py-1 sm:py-2">
                                 <SkillTags skills={consultant.skills} maxVisible={3} size="sm" />
                               </td>
-                              <td className="px-3 py-0.5">
-                                <AvailabilityBadge availability={consultant.availability} variant="text" className="text-sm leading-tight" />
+                              <td className="px-2 sm:px-3 py-1 sm:py-2">
+                                <AvailabilityBadge availability={consultant.availability} variant="text" className="text-xs sm:text-sm leading-tight" />
                               </td>
-                              <td className="px-3 py-0.5 text-center">
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-center">
                                 {consultant.resumeId ? (
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8"
+                                    className="h-7 w-7 sm:h-8 sm:w-8"
                                     onClick={() => handleDownloadResume(consultant.resumeId!, consultant.name)}
                                     title="Download resume PDF"
                                     aria-label="Download resume PDF"
                                   >
-                                    <FileText className="h-4 w-4 text-primary" />
+                                    <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                                   </Button>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">—</span>
                                 )}
                               </td>
-                              <td className="px-3 py-2 text-right">
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-right">
                                 <div className="relative inline-block" ref={(el) => {
                                   if (consultant.id) {
                                     menuRefs.current[consultant.id] = el;
@@ -458,19 +463,19 @@ export function AdminPage() {
                                     disabled={!hasId || deleting}
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 w-8 p-0"
+                                    className="h-7 w-7 sm:h-8 sm:w-8 p-0"
                                     title={hasId ? "More options" : "No ID available"}
                                   >
-                                    <MoreVertical className="h-4 w-4" />
+                                    <MoreVertical className="h-3 w-3 sm:h-4 sm:w-4" />
                                   </Button>
                                   {hasId && openMenuId === consultant.id && (
-                                    <div className="absolute right-0 mt-1 w-32 bg-background border border-border/50 rounded-md shadow-lg z-10 animate-in fade-in slide-in-from-top-2">
+                                    <div className="absolute right-0 mt-1 w-28 sm:w-32 bg-background border border-border/50 rounded-md shadow-lg z-10 animate-in fade-in slide-in-from-top-2">
                                       <button
                                         onClick={() => handleDeleteOne(consultant.id!)}
                                         disabled={deleting}
-                                        className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-md flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-destructive hover:bg-destructive/10 rounded-md flex items-center gap-1 sm:gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                       >
-                                        <Trash2 className="h-4 w-4" />
+                                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                                         Delete
                                       </button>
                                     </div>
@@ -485,21 +490,23 @@ export function AdminPage() {
                   </div>
                 </div>
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between pt-4 flex-wrap gap-4">
-                    <div className="text-sm text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row items-center justify-between pt-3 sm:pt-4 flex-wrap gap-3 sm:gap-4">
+                    <div className="text-xs sm:text-sm text-muted-foreground">
                       Page {currentPage} of {totalPages}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2">
                       <Button
                         onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
                         variant="outline"
                         size="sm"
+                        className="text-xs sm:text-sm px-2 sm:px-3"
                       >
-                        <ChevronLeft className="h-4 w-4 mr-1" />
-                        Previous
+                        <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
+                        <span className="hidden sm:inline">Previous</span>
+                        <span className="sm:hidden">Prev</span>
                       </Button>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 sm:gap-1">
                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                           let pageNum: number;
                           if (totalPages <= 5) {
@@ -517,7 +524,7 @@ export function AdminPage() {
                               onClick={() => setCurrentPage(pageNum)}
                               variant={currentPage === pageNum ? "default" : "outline"}
                               size="sm"
-                              className="w-8 h-8 p-0"
+                              className="w-7 h-7 sm:w-8 sm:h-8 p-0 text-xs sm:text-sm"
                             >
                               {pageNum}
                             </Button>
@@ -529,9 +536,11 @@ export function AdminPage() {
                         disabled={currentPage === totalPages}
                         variant="outline"
                         size="sm"
+                        className="text-xs sm:text-sm px-2 sm:px-3"
                       >
-                        Next
-                        <ChevronRight className="h-4 w-4 ml-1" />
+                        <span className="hidden sm:inline">Next</span>
+                        <span className="sm:hidden">Next</span>
+                        <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 ml-0.5 sm:ml-1" />
                       </Button>
                     </div>
                   </div>

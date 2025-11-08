@@ -10,16 +10,16 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
   const isUser = role === "user";
   
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3 sm:mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
       <Card 
-        className={`max-w-[80%] hover:shadow-md transition-shadow ${
+        className={`max-w-[85%] sm:max-w-[80%] hover:shadow-md transition-shadow ${
           isUser 
             ? "bg-primary text-primary-foreground border-primary/20" 
             : "bg-muted/50 border-border/50"
         }`}
       >
-        <CardContent className="p-4">
-          <div className={`text-sm ${isUser ? "text-primary-foreground" : ""}`}>
+        <CardContent className="p-2 sm:p-4">
+          <div className={`text-xs sm:text-sm ${isUser ? "text-primary-foreground" : ""}`}>
             <ReactMarkdown
               components={{
                 // Style markdown elements

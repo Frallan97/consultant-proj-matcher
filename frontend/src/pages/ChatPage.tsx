@@ -42,36 +42,38 @@ export function ChatPage() {
 
   return (
     <div className="w-full bg-background overflow-x-hidden">
-      <div className="container mx-auto px-4 py-8 md:py-16 max-w-6xl">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 md:py-16 max-w-6xl">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 items-stretch">
           <div className="lg:col-span-2">
-            <Card className="h-[600px] flex flex-col bg-card-primary">
-              <CardHeader>
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex items-center gap-2 p-1 bg-muted/50 rounded-md border border-border/50">
+            <Card className="h-[calc(100vh-180px)] sm:h-[600px] min-h-[500px] flex flex-col bg-card-primary">
+              <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
+                <div className="flex flex-col items-center gap-3 sm:gap-4">
+                  <div className="flex items-center gap-1 sm:gap-2 p-1 bg-muted/50 rounded-md border border-border/50 w-full sm:w-auto">
                     <Button
                       variant={mode === "assemble" ? "default" : "ghost"}
                       size="sm"
                       onClick={() => setMode("assemble")}
-                      className="min-w-[140px]"
+                      className="min-w-0 sm:min-w-[140px] flex-1 sm:flex-initial text-xs sm:text-sm px-2 sm:px-4"
                     >
-                      <Users className="h-4 w-4 mr-2" />
-                      Assemble a Team
+                      <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Assemble a Team</span>
+                      <span className="sm:hidden">Assemble</span>
                     </Button>
                     <Button
                       variant={mode === "find" ? "default" : "ghost"}
                       size="sm"
                       onClick={() => setMode("find")}
-                      className="min-w-[140px]"
+                      className="min-w-0 sm:min-w-[140px] flex-1 sm:flex-initial text-xs sm:text-sm px-2 sm:px-4"
                     >
-                      <Search className="h-4 w-4 mr-2" />
-                      Find Match
+                      <Search className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Find Match</span>
+                      <span className="sm:hidden">Find</span>
                     </Button>
                   </div>
-                  <CardTitle className="text-3xl md:text-4xl font-semibold text-center text-primary">
+                  <CardTitle className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-center text-primary px-2">
                     {mode === "assemble" ? "Assemble Your Team" : "Find the Best Match"}
                   </CardTitle>
-                  <p className="text-muted-foreground text-center mt-2 max-w-md">
+                  <p className="text-muted-foreground text-center mt-1 sm:mt-2 max-w-md text-xs sm:text-sm px-2">
                     {mode === "assemble"
                       ? "Chat with our AI assistant to find the perfect consultants for your project"
                       : "Enter a job description to find the best matching candidate for the role"}
@@ -91,35 +93,35 @@ export function ChatPage() {
             {loadingOverview ? (
               <OverviewSkeleton />
             ) : (
-              <Card className="h-full flex flex-col bg-card-secondary">
-                <CardHeader>
-                  <CardTitle className="text-xl font-semibold">Overview</CardTitle>
+              <Card className="h-auto lg:h-full flex flex-col bg-card-secondary">
+                <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
+                  <CardTitle className="text-lg sm:text-xl font-semibold">Overview</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-6 flex-1">
-                  <div className="p-4 rounded-md bg-primary/10 border border-primary/30">
-                    <p className="text-sm font-medium text-muted-foreground mb-1">Total CVs</p>
-                    <p className="text-3xl font-semibold text-primary">
+                <CardContent className="space-y-4 sm:space-y-6 flex-1 px-3 sm:px-6 pb-3 sm:pb-6">
+                  <div className="p-3 sm:p-4 rounded-md bg-primary/10 border border-primary/30">
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total CVs</p>
+                    <p className="text-2xl sm:text-3xl font-semibold text-primary">
                       {overview?.cvCount ?? 0}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-3">Top 10 Skills</p>
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 sm:mb-3">Top 10 Skills</p>
                     {overview?.topSkills && overview.topSkills.length > 0 ? (
-                      <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                      <div className="space-y-2 max-h-[300px] sm:max-h-[400px] overflow-y-auto">
                         {overview.topSkills.map((skillCount, index) => (
                           <div
                             key={index}
                             className="flex justify-between items-center p-2 rounded-md border border-border/50 hover:bg-accent/20 hover:border-accent/50 transition-colors"
                           >
-                            <span className="text-sm font-medium">{skillCount.skill}</span>
-                            <span className="text-sm text-muted-foreground">
+                            <span className="text-xs sm:text-sm font-medium truncate pr-2">{skillCount.skill}</span>
+                            <span className="text-xs sm:text-sm text-muted-foreground flex-shrink-0">
                               {skillCount.count} {skillCount.count === 1 ? "person" : "people"}
                             </span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground text-center py-4">No skills available</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No skills available</p>
                     )}
                   </div>
                 </CardContent>

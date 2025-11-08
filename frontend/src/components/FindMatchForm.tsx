@@ -39,7 +39,7 @@ export function FindMatchForm({ onMatch }: FindMatchFormProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 p-4 space-y-4 flex flex-col min-h-0">
+      <div className="flex-1 p-2 sm:p-4 space-y-3 sm:space-y-4 flex flex-col min-h-0">
         <div className="flex-1 flex flex-col min-h-0">
           <label
             htmlFor="job-description"
@@ -52,7 +52,7 @@ export function FindMatchForm({ onMatch }: FindMatchFormProps) {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Enter the job description, role requirements, skills needed, and any other relevant details to find the best matching candidate..."
-            className={`flex-1 w-full rounded-md border bg-background px-3 py-2 text-base font-normal shadow-sm transition-all file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 md:text-sm resize-none ${
+            className={`flex-1 w-full rounded-md border bg-background px-2 sm:px-3 py-2 text-sm sm:text-base font-normal shadow-sm transition-all file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 resize-none ${
               isOverLimit
                 ? "border-destructive/60 focus-visible:ring-destructive/20"
                 : isNearLimit
@@ -69,30 +69,31 @@ export function FindMatchForm({ onMatch }: FindMatchFormProps) {
               {characterCount} / {maxCharacters} characters
             </span>
             {isNearLimit && !isOverLimit && (
-              <span className="text-yellow-600 font-medium animate-in fade-in">
+              <span className="text-yellow-600 font-medium animate-in fade-in text-xs">
                 Approaching limit
               </span>
             )}
             {isOverLimit && (
-              <span className="text-destructive font-medium animate-in fade-in">
+              <span className="text-destructive font-medium animate-in fade-in text-xs">
                 Character limit exceeded
               </span>
             )}
           </div>
         </div>
       </div>
-      <div className="border-t border-border/50 bg-background p-4 flex-shrink-0">
+      <div className="border-t border-border/50 bg-background p-2 sm:p-4 flex-shrink-0">
         <div className="flex justify-end gap-2">
           <Button
             onClick={handleSubmit}
             disabled={!description.trim() || isOverLimit || loading}
             size="lg"
-            className="min-w-[120px]"
+            className="min-w-[100px] sm:min-w-[120px] text-xs sm:text-sm px-3 sm:px-4"
           >
             {loading ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Finding Match...
+                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                <span className="hidden sm:inline">Finding Match...</span>
+                <span className="sm:hidden">Finding...</span>
               </>
             ) : (
               "Find Match"

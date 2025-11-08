@@ -80,17 +80,17 @@ export function ChatInterface({ onComplete }: ChatInterfaceProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth">
+      <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-3 sm:space-y-4 scroll-smooth">
         {messages.map((msg, index) => (
           <MessageBubble key={index} role={msg.role} content={msg.content} />
         ))}
         {loading && (
           <div className="flex justify-start mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <Card className="bg-muted/50 border border-border/50">
-              <CardContent className="p-4">
+              <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground">Thinking...</span>
+                  <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin text-primary" />
+                  <span className="text-xs sm:text-sm text-muted-foreground">Thinking...</span>
                 </div>
               </CardContent>
             </Card>
@@ -98,7 +98,7 @@ export function ChatInterface({ onComplete }: ChatInterfaceProps) {
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="border-t border-border/50 bg-background/95 backdrop-blur-sm p-4">
+      <div className="border-t border-border/50 bg-background/95 backdrop-blur-sm p-2 sm:p-4">
         <div className="flex gap-2">
           <Input
             value={input}
@@ -106,16 +106,17 @@ export function ChatInterface({ onComplete }: ChatInterfaceProps) {
             onKeyDown={handleKeyDown}
             placeholder="Type your message..."
             disabled={loading}
-            className="flex-1"
+            className="flex-1 text-sm sm:text-base"
           />
           <Button 
             onClick={handleSend} 
             disabled={loading || !input.trim()}
+            className="text-xs sm:text-sm px-3 sm:px-4"
           >
             {loading ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Sending...
+                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                <span className="hidden sm:inline">Sending...</span>
               </>
             ) : (
               "Send"

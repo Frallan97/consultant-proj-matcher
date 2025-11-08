@@ -23,7 +23,7 @@ export function SkillTags({ skills, maxVisible, className, size = "md" }: SkillT
   };
 
   return (
-    <div className={cn("flex flex-wrap gap-2", className)}>
+    <div className={cn("flex flex-wrap gap-1.5 sm:gap-2", className)}>
       {visibleSkills.map((skill, index) => (
         <Badge
           key={index}

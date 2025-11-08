@@ -190,34 +190,35 @@ export function ConsultantResultsPage() {
 
   return (
     <div className="w-full bg-background overflow-x-hidden">
-      <div className="container mx-auto px-4 py-8 md:py-16 max-w-6xl">
-        <div className="space-y-6">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 md:py-16 max-w-6xl">
+        <div className="space-y-4 sm:space-y-6">
           {/* Header with back button */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Button
               variant="outline"
               size="icon"
               onClick={handleBack}
               aria-label="Go back to project description"
+              className="h-8 w-8 sm:h-10 sm:w-10"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-primary">
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-primary">
                 Matching Consultants
               </h1>
-              <p className="text-muted-foreground mt-1">Find the perfect team for your project</p>
+              <p className="text-muted-foreground mt-1 text-xs sm:text-sm">Find the perfect team for your project</p>
             </div>
           </div>
 
           {/* Project Description Display */}
           {projectDescription && !isRoleBased && (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold">Your Project Description</CardTitle>
+              <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
+                <CardTitle className="text-lg sm:text-xl font-semibold">Your Project Description</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{projectDescription}</p>
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed text-sm sm:text-base">{projectDescription}</p>
               </CardContent>
             </Card>
           )}
@@ -330,12 +331,12 @@ export function ConsultantResultsPage() {
                     {rolesWithConsultants.map((roleResult, roleIndex) => (
                     <div key={roleIndex} className="space-y-4">
                       <Card className="border-l-2 border-l-primary">
-                        <CardHeader>
-                          <CardTitle className="text-2xl font-semibold">{roleResult.role.title}</CardTitle>
+                        <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
+                          <CardTitle className="text-lg sm:text-xl md:text-2xl font-semibold">{roleResult.role.title}</CardTitle>
                           <div className="mt-2">
                             {roleResult.role.description.length > 150 ? (
                               <>
-                                <CardDescription className={`text-base leading-relaxed ${!expandedRoles.has(roleIndex) ? 'line-clamp-2' : ''}`}>
+                                <CardDescription className={`text-sm sm:text-base leading-relaxed ${!expandedRoles.has(roleIndex) ? 'line-clamp-2' : ''}`}>
                                   {roleResult.role.description}
                                 </CardDescription>
                                 <Button
@@ -358,25 +359,25 @@ export function ConsultantResultsPage() {
                                 </Button>
                               </>
                             ) : (
-                              <CardDescription className="text-base leading-relaxed">
+                              <CardDescription className="text-sm sm:text-base leading-relaxed">
                                 {roleResult.role.description}
                               </CardDescription>
                             )}
                           </div>
                           {roleResult.role.requiredSkills.length > 0 && (
                             <div className="mt-3">
-                              <p className="text-sm font-medium mb-2 text-muted-foreground">Required Skills:</p>
+                              <p className="text-xs sm:text-sm font-medium mb-2 text-muted-foreground">Required Skills:</p>
                               <SkillTags skills={roleResult.role.requiredSkills} />
                             </div>
                           )}
                         </CardHeader>
                       </Card>
                       <>
-                        <h3 className="text-lg font-semibold flex items-center gap-2">
-                          <Users className="h-5 w-5" />
+                        <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2 px-1">
+                          <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                           {roleResult.consultants.length} {roleResult.consultants.length === 1 ? "Candidate" : "Candidates"} Found
                         </h3>
-                          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                             {roleResult.consultants.map((consultant, index) => {
                               const consultantId = consultant.id || `consultant-${roleIndex}-${index}`;
                               const isDescriptionExpanded = expandedDescriptions.has(consultantId);
@@ -389,20 +390,20 @@ export function ConsultantResultsPage() {
                               
                               return (
                                 <Card key={consultantId} className="transition-shadow hover:shadow-md">
-                                  <CardHeader>
+                                  <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
                                     <div className="flex items-start justify-between gap-2">
-                                      <CardTitle className="text-xl font-semibold">{consultant.name}</CardTitle>
-                                      <div className="flex items-center gap-2 flex-shrink-0">
+                                      <CardTitle className="text-base sm:text-lg md:text-xl font-semibold pr-2">{consultant.name}</CardTitle>
+                                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                                         {consultant.resumeId && (
                                           <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-8 w-8"
+                                            className="h-7 w-7 sm:h-8 sm:w-8"
                                             onClick={() => handleDownloadResume(consultant.resumeId!, consultant.name)}
                                             title="Download resume PDF"
                                             aria-label="Download resume PDF"
                                           >
-                                            <FileText className="h-4 w-4 text-primary" />
+                                            <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                                           </Button>
                                         )}
                                         {consultant.matchScore !== undefined && (
@@ -414,7 +415,7 @@ export function ConsultantResultsPage() {
                                       <AvailabilityBadge availability={consultant.availability} variant="text" />
                                     </CardDescription>
                                   </CardHeader>
-                                  <CardContent>
+                                  <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
                                     <div className="space-y-3">
                                       {experience && (
                                         <div>
@@ -504,16 +505,16 @@ export function ConsultantResultsPage() {
                 </Card>
               ) : (
                 <>
-                  <div className="flex items-center justify-between flex-wrap gap-4">
-                    <h2 className="text-2xl font-semibold flex items-center gap-2">
-                      <Users className="h-6 w-6" />
+                  <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-4">
+                    <h2 className="text-lg sm:text-xl md:text-2xl font-semibold flex items-center gap-2">
+                      <Users className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
                       Found {consultants.length} {consultants.length === 1 ? "Consultant" : "Consultants"}
                     </h2>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Sorted by match score
                     </p>
                   </div>
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {consultants.map((consultant, index) => {
                       const consultantId = consultant.id || `consultant-${index}`;
                       const isDescriptionExpanded = expandedDescriptions.has(consultantId);
@@ -526,20 +527,20 @@ export function ConsultantResultsPage() {
                       
                       return (
                         <Card key={consultantId} className="transition-shadow hover:shadow-md">
-                          <CardHeader>
-                            <div className="flex items-start justify-between">
-                              <CardTitle className="text-xl font-semibold">{consultant.name}</CardTitle>
-                              <div className="flex items-center gap-2">
+                          <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
+                            <div className="flex items-start justify-between gap-2">
+                              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold pr-2">{consultant.name}</CardTitle>
+                              <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                                 {consultant.resumeId && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8"
+                                    className="h-7 w-7 sm:h-8 sm:w-8"
                                     onClick={() => handleDownloadResume(consultant.resumeId!, consultant.name)}
                                     title="Download resume PDF"
                                     aria-label="Download resume PDF"
                                   >
-                                    <FileText className="h-4 w-4 text-primary" />
+                                    <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                                   </Button>
                                 )}
                                 {consultant.matchScore !== undefined && (
@@ -547,11 +548,11 @@ export function ConsultantResultsPage() {
                                 )}
                               </div>
                             </div>
-                            <CardDescription>
+                            <CardDescription className="mt-2">
                               <AvailabilityBadge availability={consultant.availability} variant="text" />
                             </CardDescription>
                           </CardHeader>
-                          <CardContent>
+                          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
                             <div className="space-y-3">
                               {experience && (
                                 <div>
