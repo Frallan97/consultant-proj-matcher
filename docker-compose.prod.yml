@@ -54,6 +54,7 @@ services:
       - WEAVIATE_URL=${WEAVIATE_URL:-http://weaviate:8080}
       - CORS_ORIGINS=${CORS_ORIGINS:-https://projmatch.vibeoholic.com}
       - UPLOAD_DIR=${UPLOAD_DIR:-/app/uploads/resumes}
+      - OPENAI_APIKEY=${OPENAI_APIKEY}
     depends_on:
       - weaviate
     healthcheck:
@@ -86,6 +87,7 @@ services:
       - DEFAULT_VECTORIZER_MODULE=none
       - ENABLE_MODULES=text2vec-openai,text2vec-cohere,text2vec-huggingface,ref2vec-centroid,generative-openai,qna-openai
       - CLUSTER_HOSTNAME=node1
+      - OPENAI_APIKEY=${OPENAI_APIKEY}
     volumes:
       - weaviate_data:/var/lib/weaviate
     healthcheck:
