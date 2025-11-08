@@ -265,7 +265,7 @@ export function AdminPage() {
                     <table className="w-full">
                       <thead className="bg-muted/50">
                         <tr>
-                          <th className="px-3 py-1.5 text-left">
+                          <th className="px-3 py-0.5 text-left">
                             <input
                               type="checkbox"
                               checked={allVisibleSelected}
@@ -273,10 +273,10 @@ export function AdminPage() {
                               className="rounded border-input"
                             />
                           </th>
-                          <th className="px-3 py-1.5 text-left text-sm font-medium">Name</th>
-                          <th className="px-3 py-1.5 text-left text-sm font-medium">Skills</th>
-                          <th className="px-3 py-1.5 text-left text-sm font-medium">Availability</th>
-                          <th className="px-3 py-1.5 text-right text-sm font-medium">Actions</th>
+                          <th className="px-3 py-1 text-left text-sm font-medium">Name</th>
+                          <th className="px-3 py-1 text-left text-sm font-medium">Skills</th>
+                          <th className="px-3 py-1 text-left text-sm font-medium">Availability</th>
+                          <th className="px-3 py-1 text-right text-sm font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
@@ -288,7 +288,7 @@ export function AdminPage() {
                               key={consultant.id || `consultant-${consultant.name}`}
                               className="hover:bg-muted/30 transition-colors"
                             >
-                              <td className="px-3 py-1">
+                              <td className="px-3 py-0.5">
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
@@ -301,8 +301,8 @@ export function AdminPage() {
                                   className="rounded border-input disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                               </td>
-                              <td className="px-3 py-1 font-medium text-sm">{consultant.name}</td>
-                              <td className="px-3 py-1">
+                              <td className="px-3 py-0.5 font-medium text-sm leading-tight">{consultant.name}</td>
+                              <td className="px-3 py-0.5">
                                 <div className="flex flex-wrap gap-1">
                                   {consultant.skills.slice(0, 3).map((skill, index) => (
                                     <span
@@ -319,12 +319,12 @@ export function AdminPage() {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-3 py-1">
-                                <span className={`text-sm ${getAvailabilityColor(consultant.availability)}`}>
+                              <td className="px-3 py-0.5">
+                                <span className={`text-sm leading-tight ${getAvailabilityColor(consultant.availability)}`}>
                                   {getAvailabilityLabel(consultant.availability)}
                                 </span>
                               </td>
-                              <td className="px-3 py-1 text-right">
+                              <td className="px-3 py-0.5 text-right">
                                 <div className="relative inline-block" ref={(el) => {
                                   if (consultant.id) {
                                     menuRefs.current[consultant.id] = el;
