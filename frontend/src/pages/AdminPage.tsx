@@ -2,8 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Consultant } from "@/types/consultant";
-import { getAllConsultants, deleteConsultant, deleteConsultantsBatch } from "@/lib/api";
-import { Loader2, Trash2, MoreVertical, ChevronLeft, ChevronRight } from "lucide-react";
+import { getAllConsultants, deleteConsultant, deleteConsultantsBatch, uploadResume } from "@/lib/api";
+import { Loader2, Trash2, MoreVertical, ChevronLeft, ChevronRight, Upload, CheckCircle2, XCircle } from "lucide-react";
 
 function getAvailabilityColor(availability: Consultant["availability"]) {
   switch (availability) {
@@ -41,6 +41,12 @@ export function AdminPage() {
   const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  
+  // PDF upload state
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchConsultants = async () => {
     setLoading(true);
@@ -181,43 +187,134 @@ export function AdminPage() {
     }
   }, [consultants.length, currentPage, totalPages]);
 
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (file.type !== "application/pdf") {
+      setUploadError("Please select a PDF file");
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+    setUploadSuccess(false);
+
+    try {
+      await uploadResume(file);
+      setUploadSuccess(true);
+      // Refresh consultant list
+      await fetchConsultants();
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      // Clear success message after 3 seconds
+      setTimeout(() => setUploadSuccess(false), 3000);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Failed to upload resume");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
       <div className="container mx-auto px-4 py-8 md:py-16 max-w-6xl">
-        <Card className="shadow-lg">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-3xl md:text-4xl font-bold">
-                  Database Overview
-                </CardTitle>
-                <p className="text-muted-foreground mt-2">
-                  Manage consultants in the database
-                </p>
-              </div>
-              {someSelected && (
-                <Button
-                  onClick={handleDeleteBatch}
-                  disabled={deleting}
-                  variant="destructive"
-                  size="lg"
-                >
-                  {deleting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Deleting...
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Selected ({selectedIds.size})
-                    </>
+        <div className="space-y-6">
+          {/* PDF Upload Card */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold">Upload Resume PDF</CardTitle>
+              <p className="text-muted-foreground text-sm mt-1">
+                Upload a PDF resume to add it to the consultant database
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  disabled={uploading}
+                />
+                <div className="flex items-center gap-4">
+                  <Button
+                    onClick={handleUploadClick}
+                    disabled={uploading}
+                    className="flex items-center gap-2"
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4" />
+                        Select PDF File
+                      </>
+                    )}
+                  </Button>
+                  {uploadSuccess && (
+                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span className="text-sm">Resume uploaded successfully!</span>
+                    </div>
                   )}
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
+                  {uploadError && (
+                    <div className="flex items-center gap-2 text-destructive">
+                      <XCircle className="h-4 w-4" />
+                      <span className="text-sm">{uploadError}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Consultants List Card */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-3xl md:text-4xl font-bold">
+                    Database Overview
+                  </CardTitle>
+                  <p className="text-muted-foreground mt-2">
+                    Manage consultants in the database
+                  </p>
+                </div>
+                {someSelected && (
+                  <Button
+                    onClick={handleDeleteBatch}
+                    disabled={deleting}
+                    variant="destructive"
+                    size="lg"
+                  >
+                    {deleting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Selected ({selectedIds.size})
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -421,6 +518,7 @@ export function AdminPage() {
             )}
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

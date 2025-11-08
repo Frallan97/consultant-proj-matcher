@@ -44,6 +44,8 @@ class Consultant(BaseModel):
     availability: str
     experience: Optional[str] = None
     matchScore: Optional[float] = None
+    hasResume: Optional[bool] = False
+    resumeId: Optional[str] = None
 
 class ProjectDescription(BaseModel):
     projectDescription: str
@@ -75,10 +77,11 @@ async def match_consultants(project: ProjectDescription):
         # In a real implementation, you'd use vector embeddings for semantic search
         query = project.projectDescription.lower()
         
-        # Simple keyword matching - in production, use vector search
+        # Query Consultant collection
         response = (
             client.query
             .get("Consultant", ["name", "skills", "availability", "experience"])
+            .with_additional(["id"])
             .with_limit(20)
             .do()
         )
@@ -88,16 +91,28 @@ async def match_consultants(project: ProjectDescription):
             results = response["data"]["Get"]["Consultant"]
             
             # Calculate match scores based on keyword matching
-            for idx, consultant in enumerate(results):
+            for consultant in results:
+                consultant_id = consultant.get("_additional", {}).get("id")
                 match_score = calculate_match_score(consultant, query)
                 consultants.append({
-                    "id": consultant.get("_additional", {}).get("id"),
+                    "id": consultant_id,
                     "name": consultant.get("name", ""),
                     "skills": consultant.get("skills", []),
                     "availability": consultant.get("availability", "unknown"),
                     "experience": consultant.get("experience"),
-                    "matchScore": round(match_score, 1)
+                    "matchScore": round(match_score, 1),
+                    "hasResume": False,  # Will be determined by PDF existence
+                    "resumeId": None
                 })
+                
+                # Check if PDF exists for this consultant
+                try:
+                    pdf_path = storage.get_path(consultant_id)
+                    if os.path.exists(pdf_path):
+                        consultants[-1]["hasResume"] = True
+                        consultants[-1]["resumeId"] = consultant_id
+                except:
+                    pass
             
             # Sort by match score
             consultants.sort(key=lambda x: x["matchScore"] or 0, reverse=True)
@@ -158,12 +173,22 @@ async def get_all_consultants():
                 additional = consultant.get("_additional", {})
                 consultant_id = additional.get("id")
                 
+                # Check if PDF exists for this consultant
+                has_resume = False
+                try:
+                    pdf_path = storage.get_path(consultant_id)
+                    has_resume = os.path.exists(pdf_path)
+                except:
+                    pass
+                
                 consultants.append({
                     "id": consultant_id,
                     "name": consultant.get("name", ""),
                     "skills": consultant.get("skills", []),
                     "availability": consultant.get("availability", "unknown"),
                     "experience": consultant.get("experience"),
+                    "hasResume": has_resume,
+                    "resumeId": consultant_id if has_resume else None
                 })
         
         return ConsultantResponse(consultants=consultants)
@@ -241,8 +266,8 @@ async def delete_consultants_batch(request: DeleteRequest):
 @app.post("/api/resumes/upload")
 async def upload_resume(file: UploadFile = File(...)):
     """
-    Upload a PDF resume, parse it, and store in Weaviate.
-    Returns the resume object with ID.
+    Upload a PDF resume, parse it, and create a Consultant entry in Weaviate.
+    Returns the consultant object with ID.
     """
     if not client:
         raise HTTPException(status_code=503, detail="Weaviate client not available")
@@ -251,8 +276,8 @@ async def upload_resume(file: UploadFile = File(...)):
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="File must be a PDF")
     
-    # Generate UUID for resume
-    resume_id = str(uuid.uuid4())
+    # Generate UUID for consultant
+    consultant_id = str(uuid.uuid4())
     
     try:
         # Read PDF bytes
@@ -267,20 +292,30 @@ async def upload_resume(file: UploadFile = File(...)):
             # Parse resume
             resume_data = parse_resume_pdf(tmp_path)
             
-            # Save PDF to storage
-            storage.save_pdf(pdf_bytes, resume_id)
+            # Save PDF to storage using consultant_id
+            storage.save_pdf(pdf_bytes, consultant_id)
             
-            # Insert into Weaviate with resume_id as UUID
+            # Create Consultant entry from parsed resume data
+            consultant_data = {
+                "name": resume_data.get("name", ""),
+                "skills": resume_data.get("skills", []),
+                "availability": "available",  # Default for uploaded resumes
+                "experience": resume_data.get("experience", "")
+            }
+            
+            # Insert into Weaviate Consultant collection with consultant_id as UUID
             client.data_object.create(
-                data_object=resume_data,
-                class_name="Resume",
-                uuid=resume_id
+                data_object=consultant_data,
+                class_name="Consultant",
+                uuid=consultant_id
             )
             
-            # Return resume object with ID
+            # Return consultant object with ID
             return {
-                "id": resume_id,
-                **resume_data
+                "id": consultant_id,
+                **consultant_data,
+                "hasResume": True,
+                "resumeId": consultant_id
             }
         finally:
             # Clean up temp file
@@ -290,7 +325,7 @@ async def upload_resume(file: UploadFile = File(...)):
     except Exception as e:
         # Clean up PDF if Weaviate insertion failed
         try:
-            pdf_path = storage.get_path(resume_id)
+            pdf_path = storage.get_path(consultant_id)
             if os.path.exists(pdf_path):
                 os.unlink(pdf_path)
         except:
@@ -304,7 +339,8 @@ async def upload_resume(file: UploadFile = File(...)):
 @app.get("/api/resumes/{resume_id}/pdf")
 async def get_resume_pdf(resume_id: str):
     """
-    Retrieve the original PDF file by resume ID.
+    Retrieve the original PDF file by consultant/resume ID.
+    The ID is the same as the consultant ID for uploaded resumes.
     """
     try:
         file_path = storage.get_path(resume_id)

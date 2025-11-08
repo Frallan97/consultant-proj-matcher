@@ -5,5 +5,7 @@ export interface Consultant {
   availability: "available" | "busy" | "unavailable" | string;
   matchScore?: number;
   experience?: string;
+  hasResume?: boolean;
+  resumeId?: string;
 }
 

@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Consultant } from "@/types/consultant";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { getResumeDownloadUrl } from "@/lib/api";
+import { ArrowLeft, Loader2, FileText } from "lucide-react";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -89,6 +90,16 @@ export function ConsultantResultsPage() {
     fetchConsultants();
   }, [projectDescription]);
 
+  const handleDownloadResume = (resumeId: string, consultantName: string) => {
+    const url = getResumeDownloadUrl(resumeId);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${consultantName.replace(/\s+/g, "_")}_resume.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Show nothing while redirecting
   if (!projectDescription) {
     return null;
@@ -167,11 +178,25 @@ export function ConsultantResultsPage() {
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <CardTitle className="text-xl">{consultant.name}</CardTitle>
-                      {consultant.matchScore !== undefined && (
-                        <span className="text-sm font-semibold text-primary">
-                          {consultant.matchScore}% match
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {consultant.hasResume && consultant.resumeId && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleDownloadResume(consultant.resumeId!, consultant.name)}
+                            title="Download resume PDF"
+                            aria-label="Download resume PDF"
+                          >
+                            <FileText className="h-4 w-4 text-primary" />
+                          </Button>
+                        )}
+                        {consultant.matchScore !== undefined && (
+                          <span className="text-sm font-semibold text-primary">
+                            {consultant.matchScore}% match
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <CardDescription>
                       <span className={getAvailabilityColor(consultant.availability)}>

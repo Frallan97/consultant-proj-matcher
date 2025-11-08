@@ -35,3 +35,24 @@ export async function deleteConsultantsBatch(ids: string[]): Promise<{ success: 
   return await response.json();
 }
 
+export async function uploadResume(file: File): Promise<{ id: string; name: string; skills: string[]; experience: string; education: string; email: string; phone: string; full_text: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  
+  const response = await fetch(`${API_BASE_URL}/api/resumes/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error(error.detail || `Failed to upload resume: ${response.statusText}`);
+  }
+  
+  return await response.json();
+}
+
+export function getResumeDownloadUrl(resumeId: string): string {
+  return `${API_BASE_URL}/api/resumes/${resumeId}/pdf`;
+}
+
