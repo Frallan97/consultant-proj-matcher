@@ -16,6 +16,11 @@ from faker import Faker
 # Add parent directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Set default environment variables before importing main
+# This ensures load_dotenv() in main.py has something to work with
+if "OPENAI_APIKEY" not in os.environ:
+    os.environ["OPENAI_APIKEY"] = "test-key-default"
+
 from main import app
 from storage import LocalFileStorage
 
@@ -178,8 +183,11 @@ def temp_storage_dir():
 
 
 @pytest.fixture
-def mock_openai_resume_parser():
+def mock_openai_resume_parser(monkeypatch):
     """Mock OpenAI for resume parsing."""
+    # Set API key so the function doesn't fail on API key check
+    monkeypatch.setenv("OPENAI_APIKEY", "test-key")
+    
     with patch('services.resume_parser.OpenAI') as mock_openai_class:
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
