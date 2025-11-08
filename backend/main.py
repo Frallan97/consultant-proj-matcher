@@ -220,6 +220,10 @@ async def upload_resume(file: UploadFile = File(...)) -> Dict[str, Any]:
         # Read PDF bytes
         pdf_bytes = await file.read()
         
+        # Check if file is empty
+        if not pdf_bytes or len(pdf_bytes) == 0:
+            raise HTTPException(status_code=400, detail="File is empty")
+        
         # Validate file type - check filename, content type, and PDF magic bytes
         filename = file.filename or ""
         content_type = file.content_type or ""
@@ -227,11 +231,18 @@ async def upload_resume(file: UploadFile = File(...)) -> Dict[str, Any]:
         is_pdf_content_type = content_type == 'application/pdf' or 'pdf' in content_type.lower()
         is_pdf_magic_bytes = pdf_bytes.startswith(b'%PDF')
         
-        if not (is_pdf_filename or is_pdf_content_type or is_pdf_magic_bytes):
-            raise HTTPException(status_code=400, detail="File must be a PDF")
+        # Log for debugging (especially useful in CI)
+        logger.debug(f"File upload validation - filename: {filename}, content_type: {content_type}, size: {len(pdf_bytes)}, has_pdf_magic: {is_pdf_magic_bytes}")
         
-        if not is_pdf_magic_bytes:
-            raise HTTPException(status_code=400, detail="File does not appear to be a valid PDF")
+        # More lenient validation: if filename or content type suggests PDF, check magic bytes
+        # Otherwise, require magic bytes to be present
+        if is_pdf_filename or is_pdf_content_type:
+            # If filename or content type suggests PDF, require magic bytes
+            if not is_pdf_magic_bytes:
+                raise HTTPException(status_code=400, detail="File does not appear to be a valid PDF (missing PDF magic bytes)")
+        elif not is_pdf_magic_bytes:
+            # If no PDF indicators, require magic bytes
+            raise HTTPException(status_code=400, detail="File must be a PDF")
         
         logger.info(f"Uploading resume: {filename} ({len(pdf_bytes)} bytes)")
         

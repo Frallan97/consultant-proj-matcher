@@ -13,6 +13,9 @@ from unittest.mock import Mock, MagicMock, patch
 from testcontainers.core.container import DockerContainer
 from faker import Faker
 
+# Check if running in CI environment
+IS_CI = os.getenv("CI") == "true" or os.getenv("GITHUB_ACTIONS") == "true"
+
 # Add parent directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
