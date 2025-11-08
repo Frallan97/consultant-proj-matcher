@@ -58,3 +58,16 @@ class RoleMatchResponse(BaseModel):
     """Response from role-based matching."""
     roles: List[RoleMatchResult]
 
+
+class SkillCount(BaseModel):
+    """Skill count for overview statistics."""
+    skill: str
+    count: int
+
+
+class OverviewResponse(BaseModel):
+    """Response for overview statistics."""
+    cvCount: int
+    uniqueSkillsCount: int
+    topSkills: List[SkillCount]
+

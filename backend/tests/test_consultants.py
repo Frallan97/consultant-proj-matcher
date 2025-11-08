@@ -135,7 +135,7 @@ async def test_delete_consultants_batch(clean_weaviate, test_app):
     clean_weaviate.data_object.create(data_object=consultant2, class_name="Consultant", uuid=id2)
     
     async with test_app as client:
-        response = await client.delete("/api/consultants", json={"ids": [id1, id2]})
+        response = await client.request("DELETE", "/api/consultants", json={"ids": [id1, id2]})
         
         assert response.status_code == 200
         data = response.json()
@@ -147,7 +147,7 @@ async def test_delete_consultants_batch(clean_weaviate, test_app):
 async def test_delete_consultants_batch_empty_ids(test_app):
     """Test batch deletion with empty IDs."""
     async with test_app as client:
-        response = await client.delete("/api/consultants", json={"ids": []})
+        response = await client.request("DELETE", "/api/consultants", json={"ids": []})
         
         assert response.status_code == 200
         data = response.json()

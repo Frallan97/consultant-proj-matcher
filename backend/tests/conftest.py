@@ -145,29 +145,25 @@ def weaviate_client(weaviate_container):
 @pytest.fixture
 def clean_weaviate(weaviate_client):
     """Clean Weaviate before each test."""
-    # Delete all consultants using batch delete
+    # Delete all consultants - simplified and faster approach
     try:
-        # Get all consultants in batches
-        while True:
-            result = weaviate_client.query.get("Consultant", ["name"]).with_limit(100).do()
-            if "data" in result and "Get" in result["data"] and "Consultant" in result["data"]["Get"]:
-                consultants = result["data"]["Get"]["Consultant"]
-                if not consultants:
-                    break
-                
-                # Delete each consultant
-                for consultant in consultants:
-                    consultant_id = consultant.get("_additional", {}).get("id")
-                    if consultant_id:
-                        try:
-                            weaviate_client.data_object.delete(uuid=consultant_id, class_name="Consultant")
-                        except:
-                            pass
-            else:
-                # No data in result, break
-                break
-    except:
-        # If query fails, just continue - database might be empty
+        # Get all consultants in a single query (limit to reasonable number)
+        result = weaviate_client.query.get("Consultant", ["name"]).with_limit(1000).with_additional(["id"]).do()
+        
+        if "data" in result and "Get" in result["data"] and "Consultant" in result["data"]["Get"]:
+            consultants = result["data"]["Get"]["Consultant"]
+            
+            # Delete each consultant (batch delete would be better but this is simpler)
+            for consultant in consultants:
+                consultant_id = consultant.get("_additional", {}).get("id")
+                if consultant_id:
+                    try:
+                        weaviate_client.data_object.delete(uuid=consultant_id, class_name="Consultant")
+                    except:
+                        pass
+    except Exception:
+        # If query fails, just continue - database might be empty or cleanup failed
+        # This is not critical - tests should work even if cleanup fails
         pass
     
     yield weaviate_client
@@ -202,7 +198,7 @@ def mock_openai_resume_parser():
 @pytest.fixture
 def mock_openai_chat():
     """Mock OpenAI for chat endpoint."""
-    with patch('main.OpenAI') as mock_openai_class:
+    with patch('services.chat_service.OpenAI') as mock_openai_class:
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
         
@@ -229,21 +225,39 @@ def test_app(weaviate_client, temp_storage_dir, monkeypatch):
     
     # Import here to avoid circular imports
     import main
+    from services.consultant_service import ConsultantService
+    from services.matching_service import MatchingService
+    from services.overview_service import OverviewService
     
     # Patch the global client and storage in main.py
     original_client = main.client
     original_storage = main.storage
+    original_consultant_service = main.consultant_service
+    original_matching_service = main.matching_service
+    original_overview_service = main.overview_service
+    original_chat_service = main.chat_service
+    
     main.client = weaviate_client
     main.storage = LocalFileStorage(base_dir=temp_storage_dir)
+    
+    # Reinitialize services with the new client
+    main.consultant_service = ConsultantService(weaviate_client) if weaviate_client else None
+    main.matching_service = MatchingService(weaviate_client, main.consultant_service, main.storage) if weaviate_client and main.consultant_service else None
+    main.overview_service = OverviewService(main.consultant_service) if main.consultant_service else None
+    main.chat_service = None  # Will be initialized lazily when needed
     
     from httpx import AsyncClient
     
     try:
         yield AsyncClient(app=app, base_url="http://test")
     finally:
-        # Restore original client and storage
+        # Restore original client, storage, and services
         main.client = original_client
         main.storage = original_storage
+        main.consultant_service = original_consultant_service
+        main.matching_service = original_matching_service
+        main.overview_service = original_overview_service
+        main.chat_service = original_chat_service
 
 
 @pytest.fixture

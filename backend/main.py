@@ -6,11 +6,13 @@ from typing import List, Optional
 import weaviate
 import os
 import uuid
-import json
 from dotenv import load_dotenv
-from openai import OpenAI
 from storage import LocalFileStorage
 from services.resume_parser import parse_resume_pdf
+from services.consultant_service import ConsultantService
+from services.matching_service import MatchingService
+from services.chat_service import ChatService
+from services.overview_service import OverviewService
 from models import ConsultantData, ChatRequest, ChatResponse, ChatMessage, RoleQuery, RoleMatchRequest, RoleMatchResponse, RoleMatchResult
 
 load_dotenv()
@@ -40,18 +42,11 @@ except Exception as e:
 upload_dir = os.getenv("UPLOAD_DIR", "uploads/resumes")
 storage = LocalFileStorage(base_dir=upload_dir)
 
-# Helper function to check if Consultant schema exists
-def schema_exists():
-    """Check if the Consultant schema exists in Weaviate."""
-    if not client:
-        return False
-    try:
-        schema = client.schema.get()
-        class_names = [c["class"] for c in schema.get("classes", [])]
-        return "Consultant" in class_names
-    except Exception as e:
-        print(f"Error checking schema: {e}")
-        return False
+# Initialize services
+consultant_service = ConsultantService(client) if client else None
+matching_service = MatchingService(client, consultant_service, storage) if client and consultant_service else None
+chat_service = None  # Will be initialized lazily when needed
+overview_service = OverviewService(consultant_service) if consultant_service else None
 
 # Pydantic models
 class Consultant(ConsultantData):
@@ -87,13 +82,13 @@ async def health():
     Health check endpoint that verifies database schema is initialized.
     Returns 503 if schema is not available.
     """
-    if not client:
+    if not client or not consultant_service:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"status": "unhealthy", "reason": "Weaviate client not available"}
         )
     
-    if not schema_exists():
+    if not consultant_service.schema_exists():
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"status": "unhealthy", "reason": "Database schema not initialized"}
@@ -106,95 +101,16 @@ async def match_consultants(project: ProjectDescription):
     """
     Match consultants based on project description using Weaviate vector search.
     """
-    if not client:
+    if not matching_service:
         raise HTTPException(status_code=503, detail="Weaviate client not available")
     
-    if not schema_exists():
-        raise HTTPException(
-            status_code=422,
-            detail="No consultants found in database. Please upload consultant resumes first."
-        )
-    
     try:
-        # Use Weaviate's pure vector search (semantic similarity)
-        # .with_near_text() generates a vector from the query text and compares it to stored object vectors
-        # Use certainty (0-1) instead of distance for better score differentiation
-        # Certainty represents similarity: 1.0 = identical, 0.0 = completely different
-        MIN_CERTAINTY = 0.2  # Lower threshold to get more diverse results
-        
-        # Fetch a large pool of candidates to score them all, then limit to top 3
-        response = (
-            client.query
-            .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
-            .with_near_text({
-                "concepts": [project.projectDescription],
-                "certainty": MIN_CERTAINTY
-            })
-            .with_additional(["id", "certainty"])
-            .with_limit(100)  # Get large pool to score all candidates
-            .do()
-        )
-        
-        consultants = []
-        if "data" in response and "Get" in response["data"] and "Consultant" in response["data"]["Get"]:
-            results = response["data"]["Get"]["Consultant"]
-            
-            # Calculate scores for ALL candidates first
-            for consultant in results:
-                consultant_id = consultant.get("_additional", {}).get("id")
-                additional = consultant.get("_additional", {})
-                
-                # Get certainty from Weaviate vector search
-                # Certainty ranges from 0.0 (completely different) to 1.0 (identical)
-                certainty_raw = additional.get("certainty", None)
-                try:
-                    certainty = float(certainty_raw) if certainty_raw is not None else MIN_CERTAINTY
-                except (ValueError, TypeError):
-                    certainty = MIN_CERTAINTY
-                
-                # Map certainty 0.0-0.9 to 0-90% (cap at 90%)
-                # This provides more realistic match scores - even the best matches rarely exceed 90%
-                # Anything above 0.9 certainty is still capped at 90%
-                match_score = min(round(certainty * 100, 1), 90.0)
-                
-                consultant_data = {
-                    "id": consultant_id,
-                    "name": consultant.get("name", ""),
-                    "email": consultant.get("email", ""),
-                    "phone": consultant.get("phone", ""),
-                    "skills": consultant.get("skills", []),
-                    "availability": consultant.get("availability", "available"),
-                    "experience": consultant.get("experience", ""),
-                    "education": consultant.get("education", ""),
-                    "matchScore": match_score,
-                    "resumeId": None
-                }
-                
-                # Check if PDF exists for this consultant
-                try:
-                    pdf_path = storage.get_path(consultant_id)
-                    if os.path.exists(pdf_path):
-                        consultant_data["resumeId"] = consultant_id
-                except:
-                    pass
-                
-                consultants.append(consultant_data)
-            
-            # Now limit to top 3 AFTER calculating scores for all candidates
-            consultants = sorted(consultants, key=lambda x: x["matchScore"], reverse=True)[:3]
-        
+        consultants = matching_service.match_consultants(project.projectDescription, limit=3)
         return ConsultantResponse(consultants=consultants)
-    
-    except HTTPException:
-        raise
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         error_msg = str(e)
-        # Check if it's a schema-related error
-        if "no graphql provider" in error_msg.lower() or "no schema" in error_msg.lower():
-            raise HTTPException(
-                status_code=422,
-                detail="No consultants found in database. Please upload consultant resumes first."
-            )
         print(f"Error matching consultants: {e}")
         import traceback
         traceback.print_exc()
@@ -205,53 +121,23 @@ async def get_all_consultants():
     """
     Get all consultants.
     """
-    if not client:
-        return ConsultantResponse(consultants=[])
-    
-    if not schema_exists():
+    if not consultant_service:
         return ConsultantResponse(consultants=[])
     
     try:
-        response = (
-            client.query
-            .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
-            .with_additional(["id"])
-            .with_limit(100)
-            .do()
-        )
+        consultants = consultant_service.get_all_consultants(limit=100)
         
-        consultants = []
-        if "data" in response and "Get" in response["data"] and "Consultant" in response["data"]["Get"]:
-            results = response["data"]["Get"]["Consultant"]
-            for consultant in results:
-                # Extract ID from _additional field
-                additional = consultant.get("_additional", {})
-                consultant_id = additional.get("id")
-                
-                consultant_data = {
-                    "id": consultant_id,
-                    "name": consultant.get("name", ""),
-                    "email": consultant.get("email", ""),
-                    "phone": consultant.get("phone", ""),
-                    "skills": consultant.get("skills", []),
-                    "availability": consultant.get("availability", "available"),
-                    "experience": consultant.get("experience", ""),
-                    "education": consultant.get("education", ""),
-                    "resumeId": None
-                }
-                
-                # Check if PDF exists for this consultant
+        # Enrich with resume IDs
+        for consultant in consultants:
+            if consultant.get("id"):
                 try:
-                    pdf_path = storage.get_path(consultant_id)
+                    pdf_path = storage.get_path(consultant["id"])
                     if os.path.exists(pdf_path):
-                        consultant_data["resumeId"] = consultant_id
+                        consultant["resumeId"] = consultant["id"]
                 except:
                     pass
-                
-                consultants.append(consultant_data)
         
         return ConsultantResponse(consultants=consultants)
-    
     except Exception as e:
         print(f"Error fetching consultants: {e}")
         import traceback
@@ -263,15 +149,15 @@ async def delete_consultant(consultant_id: str):
     """
     Delete a single consultant by ID.
     """
-    if not client:
+    if not consultant_service:
         return {"success": False, "error": "Weaviate client not available"}
     
     try:
-        client.data_object.delete(
-            uuid=consultant_id,
-            class_name="Consultant"
-        )
-        return {"success": True, "message": f"Consultant {consultant_id} deleted successfully"}
+        success = consultant_service.delete_consultant(consultant_id)
+        if success:
+            return {"success": True, "message": f"Consultant {consultant_id} deleted successfully"}
+        else:
+            return {"success": False, "error": "Failed to delete consultant"}
     except Exception as e:
         print(f"Error deleting consultant {consultant_id}: {e}")
         import traceback
@@ -283,25 +169,14 @@ async def delete_consultants_batch(request: DeleteRequest):
     """
     Delete multiple consultants by IDs.
     """
-    if not client:
+    if not consultant_service:
         return {"success": False, "error": "Weaviate client not available"}
     
     if not request.ids:
         return {"success": False, "error": "No IDs provided"}
     
     try:
-        deleted_count = 0
-        errors = []
-        
-        for consultant_id in request.ids:
-            try:
-                client.data_object.delete(
-                    uuid=consultant_id,
-                    class_name="Consultant"
-                )
-                deleted_count += 1
-            except Exception as e:
-                errors.append({"id": consultant_id, "error": str(e)})
+        deleted_count, errors = consultant_service.delete_consultants_batch(request.ids)
         
         if errors:
             return {
@@ -328,7 +203,7 @@ async def upload_resume(file: UploadFile = File(...)):
     Upload a PDF resume, parse it, and create a Consultant entry in Weaviate.
     Returns the consultant object with ID.
     """
-    if not client:
+    if not consultant_service:
         raise HTTPException(status_code=503, detail="Weaviate client not available")
     
     # Validate file type
@@ -349,15 +224,10 @@ async def upload_resume(file: UploadFile = File(...)):
         storage.save_pdf(pdf_bytes, consultant_id)
         
         # Insert into Weaviate Consultant collection with consultant_id as UUID
-        # Convert ConsultantData to dict for Weaviate
-        consultant_dict = consultant_data.model_dump()
-        client.data_object.create(
-            data_object=consultant_dict,
-            class_name="Consultant",
-            uuid=consultant_id
-        )
+        consultant_service.create_consultant(consultant_data, consultant_id)
         
         # Return consultant object with ID and resumeId
+        consultant_dict = consultant_data.model_dump()
         return {
             "id": consultant_id,
             **consultant_dict,
@@ -394,6 +264,8 @@ async def get_resume_pdf(resume_id: str):
             media_type="application/pdf",
             filename=f"{resume_id}.pdf"
         )
+    except HTTPException:
+        raise
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="PDF not found")
     except Exception as e:
@@ -404,60 +276,10 @@ async def get_overview():
     """
     Get overview statistics: number of CVs (consultants), unique skills, and top 10 most common skills.
     """
-    try:
-        if not client:
-            print("Warning: Weaviate client not available for overview")
-            return OverviewResponse(cvCount=0, uniqueSkillsCount=0, topSkills=[])
-        
-        if not schema_exists():
-            print("Warning: Consultant schema does not exist for overview")
-            return OverviewResponse(cvCount=0, uniqueSkillsCount=0, topSkills=[])
-        
-        # Fetch all consultants to count and collect skills
-        # Use a reasonable limit to avoid timeouts
-        print("Fetching consultants for overview...")
-        response = (
-            client.query
-            .get("Consultant", ["skills"])
-            .with_limit(500)  # Reduced limit to avoid timeouts
-            .do()
-        )
-        print(f"Overview query completed, processing results...")
-        
-        cv_count = 0
-        all_skills = set()
-        skill_counts = {}  # Dictionary to count occurrences of each skill
-        
-        if "data" in response and "Get" in response["data"] and "Consultant" in response["data"]["Get"]:
-            results = response["data"]["Get"]["Consultant"]
-            cv_count = len(results)
-            print(f"Found {cv_count} consultants for overview")
-            
-            # Collect all unique skills and count occurrences
-            for consultant in results:
-                skills = consultant.get("skills", [])
-                if skills:
-                    all_skills.update(skills)
-                    for skill in skills:
-                        skill_counts[skill] = skill_counts.get(skill, 0) + 1
-        
-        # Get top 10 most common skills
-        sorted_skills = sorted(skill_counts.items(), key=lambda x: x[1], reverse=True)
-        top_skills = [SkillCount(skill=skill, count=count) for skill, count in sorted_skills[:10]]
-        
-        print(f"Overview complete: {cv_count} CVs, {len(all_skills)} unique skills")
-        return OverviewResponse(
-            cvCount=cv_count,
-            uniqueSkillsCount=len(all_skills),
-            topSkills=top_skills
-        )
-    
-    except Exception as e:
-        print(f"Error fetching overview: {e}")
-        import traceback
-        traceback.print_exc()
-        # Return empty response instead of raising exception to avoid breaking the UI
+    if not overview_service:
         return OverviewResponse(cvCount=0, uniqueSkillsCount=0, topSkills=[])
+    
+    return overview_service.get_overview()
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -465,94 +287,17 @@ async def chat(request: ChatRequest):
     Chat endpoint for interactive team assembly conversation.
     Uses OpenAI to ask clarifying questions and generate role queries.
     """
-    api_key = os.getenv("OPENAI_APIKEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="OPENAI_APIKEY not found in environment variables")
+    global chat_service
     
-    client_openai = OpenAI(api_key=api_key)
-    
-    # System prompt for team assembly
-    system_prompt = """You are a helpful assistant helping assemble a development team. 
-Your goal is to quickly understand project requirements and generate a team FAST.
-
-URGENCY DETECTION:
-- If the user mentions being in a hurry, urgent, ASAP, quickly, fast, or any time pressure - generate roles IMMEDIATELY with zero questions
-- If the user provides ANY project description, generate roles immediately - don't ask questions
-- Only ask questions if the message is completely empty or just "hello" with no context
-
-Be extremely proactive and make reasonable assumptions. Generate roles on the FIRST message if possible.
-
-Guidelines:
-- If the user mentions a project type (web app, mobile app, game, API, etc.), generate appropriate roles IMMEDIATELY
-- Make reasonable assumptions about tech stack based on project type if not specified
-- For web apps, typically include: Frontend Engineer, Backend Engineer (and optionally Full-stack, DevOps, Designer)
-- For mobile apps, typically include: Mobile Developer (iOS/Android), Backend Engineer
-- For games, typically include: Game Developer, Backend Engineer, Designer
-- For APIs/backend services: Backend Engineer, DevOps Engineer
-- For data/ML projects: Data Engineer, ML Engineer, Backend Engineer
-- Default to common modern stacks (React, Node.js, Python, etc.) if not specified
-
-Generate structured role queries in JSON format. The JSON should be embedded in your response like this:
-
-<roles>
-{
-  "roles": [
-    {
-      "title": "Frontend Engineer",
-      "description": "Description of what this role needs",
-      "query": "Vector search query for matching candidates (e.g., 'Frontend developer with React and TypeScript experience')",
-      "requiredSkills": ["React", "TypeScript"]
-    }
-  ]
-}
-</roles>
-
-CRITICAL: Generate roles IMMEDIATELY when you detect urgency or when the user provides any project information. 
-Don't ask questions - be decisive and helpful. Speed is more important than perfect information."""
+    # Initialize chat service lazily
+    if not chat_service:
+        try:
+            chat_service = ChatService()
+        except ValueError as e:
+            raise HTTPException(status_code=500, detail=str(e))
     
     try:
-        # Prepare messages for OpenAI
-        messages = [{"role": "system", "content": system_prompt}]
-        for msg in request.messages:
-            messages.append({"role": msg.role, "content": msg.content})
-        
-        # Call OpenAI
-        response = client_openai.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-            temperature=0.7
-        )
-        
-        if not response.choices or len(response.choices) == 0:
-            raise HTTPException(status_code=500, detail="OpenAI API returned no choices")
-        
-        content = response.choices[0].message.content
-        
-        # Check if response contains role queries
-        is_complete = False
-        roles = None
-        
-        if "<roles>" in content and "</roles>" in content:
-            try:
-                roles_start = content.find("<roles>") + len("<roles>")
-                roles_end = content.find("</roles>")
-                roles_json = content[roles_start:roles_end].strip()
-                roles_data = json.loads(roles_json)
-                roles = [RoleQuery(**role) for role in roles_data.get("roles", [])]
-                is_complete = True
-                # Remove the roles tag from the content
-                content = content[:content.find("<roles>")].strip() + content[content.find("</roles>") + len("</roles>"):].strip()
-            except (json.JSONDecodeError, KeyError, ValueError) as e:
-                print(f"Error parsing roles from OpenAI response: {e}")
-                # Continue without roles
-        
-        return ChatResponse(
-            role="assistant",
-            content=content,
-            isComplete=is_complete,
-            roles=roles
-        )
-    
+        return chat_service.process_chat(request.messages)
     except Exception as e:
         print(f"Error in chat endpoint: {e}")
         import traceback
@@ -565,130 +310,21 @@ async def match_consultants_by_roles(request: RoleMatchRequest):
     Match consultants for multiple roles using vector search.
     Performs a separate vector search for each role query.
     """
-    if not client:
+    if not matching_service:
         raise HTTPException(status_code=503, detail="Weaviate client not available")
-    
-    if not schema_exists():
-        raise HTTPException(
-            status_code=422,
-            detail="No consultants found in database. Please upload consultant resumes first."
-        )
     
     try:
         role_results = []
         
         for role_query in request.roles:
-            # Perform vector search for this role
-            # Remove certainty threshold to get ALL matches, even if they're bad
-            # We'll sort by score and take the top matches
             print(f"Searching for role '{role_query.title}' with query: '{role_query.query}'")
             
-            # First try vector search without certainty threshold to get all matches
-            response = (
-                client.query
-                .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
-                .with_near_text({
-                    "concepts": [role_query.query]
-                    # No certainty threshold - get all matches
-                })
-                .with_additional(["id", "certainty"])
-                .with_limit(100)  # Get large pool to score all candidates
-                .do()
-            )
-            
-            consultants = []
-            if "data" in response and "Get" in response["data"] and "Consultant" in response["data"]["Get"]:
-                results = response["data"]["Get"]["Consultant"]
-                print(f"Found {len(results)} raw results for role '{role_query.title}'")
-                
-                # Calculate scores for ALL candidates first
-                for consultant in results:
-                    consultant_id = consultant.get("_additional", {}).get("id")
-                    additional = consultant.get("_additional", {})
-                    
-                    # Get certainty from Weaviate vector search
-                    # Certainty ranges from 0.0 (completely different) to 1.0 (identical)
-                    certainty_raw = additional.get("certainty", None)
-                    try:
-                        certainty = float(certainty_raw) if certainty_raw is not None else 0.0
-                    except (ValueError, TypeError):
-                        certainty = 0.0
-                    
-                    # Map certainty 0.0-0.9 to 0-90% (cap at 90%)
-                    # This provides more realistic match scores - even the best matches rarely exceed 90%
-                    # Anything above 0.9 certainty is still capped at 90%
-                    match_score = min(round(certainty * 100, 1), 90.0)
-                    
-                    consultant_data = {
-                        "id": consultant_id,
-                        "name": consultant.get("name", ""),
-                        "email": consultant.get("email", ""),
-                        "phone": consultant.get("phone", ""),
-                        "skills": consultant.get("skills", []),
-                        "availability": consultant.get("availability", "available"),
-                        "experience": consultant.get("experience", ""),
-                        "education": consultant.get("education", ""),
-                        "matchScore": match_score,
-                        "resumeId": None
-                    }
-                    
-                    # Check if PDF exists
-                    try:
-                        pdf_path = storage.get_path(consultant_id)
-                        if os.path.exists(pdf_path):
-                            consultant_data["resumeId"] = consultant_id
-                    except:
-                        pass
-                    
-                    consultants.append(consultant_data)
-            
-            # If no matches found, try to get any consultants as fallback
-            if len(consultants) == 0:
-                print(f"No vector matches found for '{role_query.title}', trying fallback query...")
-                try:
-                    # Fallback: get all consultants without vector search
-                    fallback_response = (
-                        client.query
-                        .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
-                        .with_additional(["id"])
-                        .with_limit(10)  # Get top 10 consultants as fallback
-                        .do()
-                    )
-                    
-                    if "data" in fallback_response and "Get" in fallback_response["data"] and "Consultant" in fallback_response["data"]["Get"]:
-                        fallback_results = fallback_response["data"]["Get"]["Consultant"]
-                        print(f"Found {len(fallback_results)} fallback consultants for role '{role_query.title}'")
-                        
-                        for consultant in fallback_results:
-                            consultant_id = consultant.get("_additional", {}).get("id")
-                            
-                            consultant_data = {
-                                "id": consultant_id,
-                                "name": consultant.get("name", ""),
-                                "email": consultant.get("email", ""),
-                                "phone": consultant.get("phone", ""),
-                                "skills": consultant.get("skills", []),
-                                "availability": consultant.get("availability", "available"),
-                                "experience": consultant.get("experience", ""),
-                                "education": consultant.get("education", ""),
-                                "matchScore": 10.0,  # Low score for fallback matches
-                                "resumeId": None
-                            }
-                            
-                            # Check if PDF exists
-                            try:
-                                pdf_path = storage.get_path(consultant_id)
-                                if os.path.exists(pdf_path):
-                                    consultant_data["resumeId"] = consultant_id
-                            except:
-                                pass
-                            
-                            consultants.append(consultant_data)
-                except Exception as e:
-                    print(f"Error in fallback query for '{role_query.title}': {e}")
-            
-            # Now limit to top 3 AFTER calculating scores for all candidates
-            consultants = sorted(consultants, key=lambda x: x["matchScore"], reverse=True)[:3]
+            try:
+                consultants = matching_service.match_consultants_by_role(role_query.query, limit=3)
+            except ValueError as e:
+                # If no matches found, return empty list for this role
+                print(f"No matches found for role '{role_query.title}': {e}")
+                consultants = []
             
             # Ensure consultants is always a list, never None
             if consultants is None:
@@ -699,14 +335,10 @@ async def match_consultants_by_roles(request: RoleMatchRequest):
                 consultants=consultants
             )
             print(f"Role '{role_query.title}': Found {len(consultants)} consultants")
-            print(f"Role result consultants type: {type(role_result.consultants)}, length: {len(role_result.consultants) if role_result.consultants else 'None'}")
-            print(f"Role result consultants value: {role_result.consultants}")
             role_results.append(role_result)
         
         response_data = RoleMatchResponse(roles=role_results)
         print(f"Response has {len(response_data.roles)} roles")
-        for idx, role_result in enumerate(response_data.roles):
-            print(f"Response role {idx} '{role_result.role.title}': consultants type={type(role_result.consultants)}, length={len(role_result.consultants) if role_result.consultants else 'None'}")
         return response_data
     
     except HTTPException:
