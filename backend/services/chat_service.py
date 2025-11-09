@@ -1,13 +1,13 @@
 """
 Service for chat functionality with OpenAI.
 """
-import os
 import json
 from typing import Optional, List
 from openai import OpenAI
 from openai import OpenAIError
 from models import ChatMessage, RoleQuery, ChatResponse
 from logger_config import get_logger
+from config import get_settings
 
 logger = get_logger(__name__)
 
@@ -17,7 +17,12 @@ class ChatService:
     
     def __init__(self, api_key: Optional[str] = None):
         """Initialize with OpenAI API key."""
-        self.api_key = api_key or os.getenv("OPENAI_APIKEY")
+        if api_key:
+            self.api_key = api_key
+        else:
+            settings = get_settings()
+            self.api_key = settings.openai_apikey
+        
         if not self.api_key:
             raise ValueError("OPENAI_APIKEY not found in environment variables")
         

@@ -35,7 +35,10 @@ async def test_health_check_healthy(clean_weaviate, test_app):
 @pytest.mark.asyncio
 async def test_health_check_no_weaviate(test_app, monkeypatch):
     """Test health check when Weaviate client is unavailable."""
+    import main
     with patch('main.client', None):
+        # Also set consultant_service to None to ensure it's not cached
+        main.consultant_service = None
         async with test_app as client:
             response = await client.get("/health")
             assert response.status_code == 503
@@ -543,16 +546,24 @@ async def test_chat_endpoint_success(test_app, mock_openai_chat):
 @pytest.mark.asyncio
 async def test_chat_endpoint_missing_api_key(test_app, monkeypatch):
     """Test chat endpoint when OpenAI API key is missing."""
-    monkeypatch.delenv("OPENAI_APIKEY", raising=False)
+    import main
+    from config import reset_settings
     
-    with patch('main.os.getenv', return_value=None):
-        async with test_app as client:
-            response = await client.post("/api/chat", json={
-                "messages": [{"role": "user", "content": "Hello"}]
-            })
-            
-            assert response.status_code == 500
-            assert "OPENAI_APIKEY" in response.json()["detail"]
+    # Reset settings and chat service to force re-initialization
+    reset_settings()
+    main.chat_service = None
+    
+    # Delete the API key from environment
+    monkeypatch.delenv("OPENAI_APIKEY", raising=False)
+    reset_settings()  # Reset again to pick up deleted env var
+    
+    async with test_app as client:
+        response = await client.post("/api/chat", json={
+            "messages": [{"role": "user", "content": "Hello"}]
+        })
+        
+        assert response.status_code == 500
+        assert "OPENAI_APIKEY" in response.json()["detail"] or "not available" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

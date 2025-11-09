@@ -28,7 +28,10 @@ async def test_health_check_healthy(clean_weaviate, test_app):
 @pytest.mark.asyncio
 async def test_health_check_no_weaviate(test_app, monkeypatch):
     """Test health check when Weaviate client is unavailable."""
+    import main
     with patch('main.client', None):
+        # Also set consultant_service to None to ensure it's not cached
+        main.consultant_service = None
         async with test_app as client:
             response = await client.get("/health")
             assert response.status_code == 503

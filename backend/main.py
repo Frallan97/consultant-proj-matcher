@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, status
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
@@ -7,7 +7,6 @@ import weaviate
 import os
 import uuid
 import logging
-from dotenv import load_dotenv
 from storage import LocalFileStorage
 from services.resume_parser import parse_resume_pdf
 from services.consultant_service import ConsultantService
@@ -16,44 +15,49 @@ from services.chat_service import ChatService
 from services.overview_service import OverviewService
 from models import ConsultantData, ChatRequest, ChatResponse, ChatMessage, RoleQuery, RoleMatchRequest, RoleMatchResponse, RoleMatchResult
 from logger_config import setup_logging, get_logger
+from config import get_settings
+from dependencies import (
+    get_weaviate_client,
+    get_storage,
+    get_consultant_service,
+    get_matching_service,
+    get_overview_service,
+    get_chat_service
+)
+from exceptions import (
+    ServiceUnavailableError,
+    ValidationError,
+    NotFoundError,
+    FileUploadError
+)
 
-load_dotenv()
+# Get settings
+settings = get_settings()
 
 # Set up logging
-setup_logging(os.getenv("LOG_LEVEL", "INFO"))
+setup_logging(settings.log_level)
 logger = get_logger(__name__)
 
 app = FastAPI(title="Consultant Matching API", version="1.0.0")
 
 # CORS middleware
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173,http://localhost:8080")
-cors_origins_list = [origin.strip() for origin in cors_origins.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins_list,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Weaviate client
-weaviate_url = os.getenv("WEAVIATE_URL", "http://weaviate:8080")
-try:
-    client = weaviate.Client(url=weaviate_url)
-    logger.info(f"Successfully connected to Weaviate at {weaviate_url}")
-except (weaviate.exceptions.WeaviateBaseError, ConnectionError, Exception) as e:
-    logger.warning(f"Could not connect to Weaviate at {weaviate_url}: {e}", exc_info=True)
-    client = None
-
-# Storage
-upload_dir = os.getenv("UPLOAD_DIR", "uploads/resumes")
-storage = LocalFileStorage(base_dir=upload_dir)
-
-# Initialize services
-consultant_service = ConsultantService(client) if client else None
-matching_service = MatchingService(client, consultant_service, storage) if client and consultant_service else None
-chat_service = None  # Will be initialized lazily when needed
-overview_service = OverviewService(consultant_service) if consultant_service else None
+# Keep global variables for backward compatibility with tests
+# Tests can still patch main.client, main.storage, etc. if needed
+# In production, use dependency injection via Depends()
+client = None
+storage = None
+consultant_service = None
+matching_service = None
+chat_service = None
+overview_service = None
 
 # Pydantic models
 class Consultant(ConsultantData):
@@ -79,23 +83,83 @@ class OverviewResponse(BaseModel):
     uniqueSkillsCount: int
     topSkills: List[SkillCount]
 
+
+# Global exception handlers
+@app.exception_handler(ServiceUnavailableError)
+async def service_unavailable_handler(request, exc: ServiceUnavailableError):
+    """Handle service unavailable errors (503)."""
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "error": "Service Unavailable",
+            "detail": exc.message,
+            "status_code": 503
+        }
+    )
+
+
+@app.exception_handler(ValidationError)
+async def validation_error_handler(request, exc: ValidationError):
+    """Handle validation errors (422)."""
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "error": "Validation Error",
+            "detail": exc.message,
+            "status_code": 422,
+            "field": exc.field
+        }
+    )
+
+
+@app.exception_handler(NotFoundError)
+async def not_found_handler(request, exc: NotFoundError):
+    """Handle not found errors (404)."""
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={
+            "error": "Not Found",
+            "detail": exc.message,
+            "status_code": 404,
+            "resource": exc.resource
+        }
+    )
+
+
+@app.exception_handler(FileUploadError)
+async def file_upload_error_handler(request, exc: FileUploadError):
+    """Handle file upload errors (400/413)."""
+    status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE if exc.reason == "size" else status.HTTP_400_BAD_REQUEST
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": "File Upload Error",
+            "detail": exc.message,
+            "status_code": status_code,
+            "reason": exc.reason
+        }
+    )
+
+
 @app.get("/")
 async def root() -> Dict[str, str]:
     return {"message": "Consultant Matching API"}
 
 @app.get("/health")
-async def health():
+async def health(
+    consultant_service: Optional[ConsultantService] = Depends(get_consultant_service)
+):
     """
     Health check endpoint that verifies database schema is initialized.
     Returns 503 if schema is not available.
     """
-    if not client or not consultant_service:
+    if not consultant_service:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"status": "unhealthy", "reason": "Weaviate client not available"}
         )
     
-    if not consultant_service.schema_exists():
+    if not await consultant_service.schema_exists():
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"status": "unhealthy", "reason": "Database schema not initialized"}
@@ -104,7 +168,10 @@ async def health():
     return {"status": "healthy", "database": "initialized"}
 
 @app.post("/api/consultants/match", response_model=ConsultantResponse)
-async def match_consultants(project: ProjectDescription) -> ConsultantResponse:
+async def match_consultants(
+    project: ProjectDescription,
+    matching_service: Optional[MatchingService] = Depends(get_matching_service)
+) -> ConsultantResponse:
     """
     Match consultants based on project description using Weaviate vector search.
     """
@@ -112,7 +179,7 @@ async def match_consultants(project: ProjectDescription) -> ConsultantResponse:
         raise HTTPException(status_code=503, detail="Weaviate client not available")
     
     try:
-        consultants = matching_service.match_consultants(project.projectDescription, limit=3)
+        consultants = await matching_service.match_consultants(project.projectDescription, limit=3)
         logger.info(f"Matched {len(consultants)} consultants for project description")
         return ConsultantResponse(consultants=consultants)
     except ValueError as e:
@@ -124,7 +191,10 @@ async def match_consultants(project: ProjectDescription) -> ConsultantResponse:
         raise HTTPException(status_code=500, detail="Error matching consultants. Please try again later.")
 
 @app.get("/api/consultants", response_model=ConsultantResponse)
-async def get_all_consultants() -> ConsultantResponse:
+async def get_all_consultants(
+    consultant_service: Optional[ConsultantService] = Depends(get_consultant_service),
+    storage: LocalFileStorage = Depends(get_storage)
+) -> ConsultantResponse:
     """
     Get all consultants.
     """
@@ -133,7 +203,7 @@ async def get_all_consultants() -> ConsultantResponse:
         return ConsultantResponse(consultants=[])
     
     try:
-        consultants = consultant_service.get_all_consultants(limit=100)
+        consultants = await consultant_service.get_all_consultants(limit=100)
         
         # Enrich with resume IDs
         for consultant in consultants:
@@ -152,7 +222,10 @@ async def get_all_consultants() -> ConsultantResponse:
         return ConsultantResponse(consultants=[])
 
 @app.delete("/api/consultants/{consultant_id}")
-async def delete_consultant(consultant_id: str) -> Dict[str, Any]:
+async def delete_consultant(
+    consultant_id: str,
+    consultant_service: Optional[ConsultantService] = Depends(get_consultant_service)
+) -> Dict[str, Any]:
     """
     Delete a single consultant by ID.
     """
@@ -160,7 +233,7 @@ async def delete_consultant(consultant_id: str) -> Dict[str, Any]:
         return {"success": False, "error": "Weaviate client not available"}
     
     try:
-        success = consultant_service.delete_consultant(consultant_id)
+        success = await consultant_service.delete_consultant(consultant_id)
         if success:
             logger.info(f"Successfully deleted consultant {consultant_id}")
             return {"success": True, "message": f"Consultant {consultant_id} deleted successfully"}
@@ -172,7 +245,10 @@ async def delete_consultant(consultant_id: str) -> Dict[str, Any]:
         return {"success": False, "error": "Failed to delete consultant"}
 
 @app.delete("/api/consultants")
-async def delete_consultants_batch(request: DeleteRequest) -> Dict[str, Any]:
+async def delete_consultants_batch(
+    request: DeleteRequest,
+    consultant_service: Optional[ConsultantService] = Depends(get_consultant_service)
+) -> Dict[str, Any]:
     """
     Delete multiple consultants by IDs.
     """
@@ -183,7 +259,7 @@ async def delete_consultants_batch(request: DeleteRequest) -> Dict[str, Any]:
         return {"success": False, "error": "No IDs provided"}
     
     try:
-        deleted_count, errors = consultant_service.delete_consultants_batch(request.ids)
+        deleted_count, errors = await consultant_service.delete_consultants_batch(request.ids)
         
         if errors:
             logger.warning(f"Batch delete completed with {len(errors)} error(s): {deleted_count} deleted")
@@ -205,7 +281,11 @@ async def delete_consultants_batch(request: DeleteRequest) -> Dict[str, Any]:
         return {"success": False, "error": "Failed to delete consultants"}
 
 @app.post("/api/resumes/upload")
-async def upload_resume(file: UploadFile = File(...)) -> Dict[str, Any]:
+async def upload_resume(
+    file: UploadFile = File(...),
+    consultant_service: Optional[ConsultantService] = Depends(get_consultant_service),
+    storage: LocalFileStorage = Depends(get_storage)
+) -> Dict[str, Any]:
     """
     Upload a PDF resume, parse it, and create a Consultant entry in Weaviate.
     Returns the consultant object with ID.
@@ -222,7 +302,17 @@ async def upload_resume(file: UploadFile = File(...)) -> Dict[str, Any]:
         
         # Check if file is empty
         if not pdf_bytes or len(pdf_bytes) == 0:
-            raise HTTPException(status_code=400, detail="File is empty")
+            raise FileUploadError("File is empty", reason="empty")
+        
+        # Check file size
+        file_size = len(pdf_bytes)
+        max_size = settings.max_upload_size
+        if file_size > max_size:
+            max_size_mb = settings.max_upload_size_mb
+            raise FileUploadError(
+                f"File size ({file_size / (1024 * 1024):.2f} MB) exceeds maximum allowed size ({max_size_mb:.2f} MB)",
+                reason="size"
+            )
         
         # Validate file type - check filename, content type, and PDF magic bytes
         filename = file.filename or ""
@@ -239,10 +329,10 @@ async def upload_resume(file: UploadFile = File(...)) -> Dict[str, Any]:
         if is_pdf_filename or is_pdf_content_type:
             # If filename or content type suggests PDF, require magic bytes
             if not is_pdf_magic_bytes:
-                raise HTTPException(status_code=400, detail="File does not appear to be a valid PDF (missing PDF magic bytes)")
+                raise FileUploadError("File does not appear to be a valid PDF (missing PDF magic bytes)", reason="invalid_format")
         elif not is_pdf_magic_bytes:
             # If no PDF indicators, require magic bytes
-            raise HTTPException(status_code=400, detail="File must be a PDF")
+            raise FileUploadError("File must be a PDF", reason="invalid_format")
         
         logger.info(f"Uploading resume: {filename} ({len(pdf_bytes)} bytes)")
         
@@ -253,7 +343,7 @@ async def upload_resume(file: UploadFile = File(...)) -> Dict[str, Any]:
         storage.save_pdf(pdf_bytes, consultant_id)
         
         # Insert into Weaviate Consultant collection with consultant_id as UUID
-        consultant_service.create_consultant(consultant_data, consultant_id)
+        await consultant_service.create_consultant(consultant_data, consultant_id)
         
         logger.info(f"Successfully uploaded and processed resume for {consultant_data.name} (ID: {consultant_id})")
         
@@ -265,6 +355,9 @@ async def upload_resume(file: UploadFile = File(...)) -> Dict[str, Any]:
             "resumeId": consultant_id
         }
     
+    except FileUploadError:
+        # Re-raise FileUploadError as-is (will be handled by exception handler)
+        raise
     except ValueError as e:
         # Clean up PDF if parsing failed (client error - invalid PDF format)
         try:
@@ -301,7 +394,10 @@ async def upload_resume(file: UploadFile = File(...)) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail="Error processing resume. Please try again later.")
 
 @app.get("/api/resumes/{resume_id}/pdf")
-async def get_resume_pdf(resume_id: str) -> FileResponse:
+async def get_resume_pdf(
+    resume_id: str,
+    storage: LocalFileStorage = Depends(get_storage)
+) -> FileResponse:
     """
     Retrieve the original PDF file by consultant/resume ID.
     The ID is the same as the consultant ID for uploaded resumes.
@@ -327,31 +423,29 @@ async def get_resume_pdf(resume_id: str) -> FileResponse:
         logger.error(f"Error retrieving PDF for resume_id: {resume_id}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error retrieving PDF")
 @app.get("/api/overview", response_model=OverviewResponse)
-async def get_overview() -> OverviewResponse:
+async def get_overview(
+    overview_service: Optional[OverviewService] = Depends(get_overview_service)
+) -> OverviewResponse:
     """
     Get overview statistics: number of CVs (consultants), unique skills, and top 10 most common skills.
     """
     if not overview_service:
         return OverviewResponse(cvCount=0, uniqueSkillsCount=0, topSkills=[])
     
-    return overview_service.get_overview()
+    return await overview_service.get_overview()
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest) -> ChatResponse:
+async def chat(
+    request: ChatRequest,
+    chat_service: Optional[ChatService] = Depends(get_chat_service)
+) -> ChatResponse:
     """
     Chat endpoint for interactive team assembly conversation.
     Uses OpenAI to ask clarifying questions and generate role queries.
     """
-    global chat_service
-    
-    # Initialize chat service lazily
     if not chat_service:
-        try:
-            chat_service = ChatService()
-            logger.info("Chat service initialized")
-        except ValueError as e:
-            logger.error("Failed to initialize chat service", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Chat service not available")
+        raise HTTPException(status_code=500, detail="Chat service not available")
     
     try:
         logger.debug(f"Processing chat request with {len(request.messages)} messages")
@@ -364,7 +458,10 @@ async def chat(request: ChatRequest) -> ChatResponse:
         raise HTTPException(status_code=500, detail="Error processing chat. Please try again later.")
 
 @app.post("/api/consultants/match-roles", response_model=RoleMatchResponse)
-async def match_consultants_by_roles(request: RoleMatchRequest) -> RoleMatchResponse:
+async def match_consultants_by_roles(
+    request: RoleMatchRequest,
+    matching_service: Optional[MatchingService] = Depends(get_matching_service)
+) -> RoleMatchResponse:
     """
     Match consultants for multiple roles using vector search.
     Performs a separate vector search for each role query.
@@ -379,7 +476,7 @@ async def match_consultants_by_roles(request: RoleMatchRequest) -> RoleMatchResp
             logger.debug(f"Searching for role '{role_query.title}' with query: '{role_query.query}'")
             
             try:
-                consultants = matching_service.match_consultants_by_role(role_query.query, limit=3)
+                consultants = await matching_service.match_consultants_by_role(role_query.query, limit=3)
             except ValueError as e:
                 # If no matches found, return empty list for this role
                 logger.warning(f"No matches found for role '{role_query.title}': {e}")

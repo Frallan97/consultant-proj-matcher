@@ -26,6 +26,7 @@ if "OPENAI_APIKEY" not in os.environ:
 
 from main import app
 from storage import LocalFileStorage
+from config import reset_settings
 
 fake = Faker()
 
@@ -204,25 +205,8 @@ def mock_openai_resume_parser(monkeypatch):
     # Set API key so the function doesn't fail on API key check
     monkeypatch.setenv("OPENAI_APIKEY", "test-key")
     
-    # Patch os.getenv in the resume_parser module to ensure it picks up the test key
-    # Import the module to get a reference to it (it may already be imported)
-    import services.resume_parser as resume_parser_module
-    import os as os_module
-    
-    # Store original getenv
-    original_getenv = os_module.getenv
-    
-    def mock_getenv(key, default=None):
-        if key == "OPENAI_APIKEY":
-            return "test-key"
-        return original_getenv(key, default)
-    
-    # Patch os.getenv in the resume_parser module's namespace
-    monkeypatch.setattr(resume_parser_module.os, "getenv", mock_getenv)
-    
-    # Also patch the global os.getenv to be safe (in case it's used directly)
-    # But we'll restore it after, so we only patch the module's os
-    # The monkeypatch.setattr will automatically restore it after the test
+    # Reset settings to pick up the new environment variable
+    reset_settings()
     
     # Patch OpenAI class
     with patch('services.resume_parser.OpenAI') as mock_openai_class:
@@ -261,12 +245,19 @@ def mock_openai_chat():
 @pytest.fixture
 def test_app(weaviate_client, temp_storage_dir, monkeypatch):
     """Create test FastAPI app instance."""
+    # Reset settings singleton to pick up new environment variables
+    reset_settings()
+    
     # Set environment variables
     host = weaviate_client._connection.url.replace("http://", "").replace("https://", "")
     monkeypatch.setenv("WEAVIATE_URL", f"http://{host}")
     monkeypatch.setenv("UPLOAD_DIR", temp_storage_dir)
     monkeypatch.setenv("OPENAI_APIKEY", "test-key")
     monkeypatch.setenv("CORS_ORIGINS", "http://localhost:3000")
+    monkeypatch.setenv("LOG_LEVEL", "INFO")
+    
+    # Reset settings again after setting env vars
+    reset_settings()
     
     # Import here to avoid circular imports
     import main

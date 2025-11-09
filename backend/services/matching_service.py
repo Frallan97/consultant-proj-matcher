@@ -1,6 +1,7 @@
 """
 Service for matching consultants using vector search.
 """
+import asyncio
 import weaviate
 import os
 from typing import List, Dict, Optional
@@ -59,27 +60,30 @@ class MatchingService:
         
         return consultant_data
     
-    def match_consultants(self, project_description: str, limit: int = 3) -> List[Dict]:
+    async def match_consultants(self, project_description: str, limit: int = 3) -> List[Dict]:
         """Match consultants based on project description using vector search."""
         if not self.client:
             raise ValueError("Weaviate client not available")
         
-        if not self.consultant_service.schema_exists():
+        if not await self.consultant_service.schema_exists():
             raise ValueError("No consultants found in database. Please upload consultant resumes first.")
         
         try:
             # Fetch a large pool of candidates to score them all, then limit to top N
-            response = (
-                self.client.query
-                .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
-                .with_near_text({
-                    "concepts": [project_description],
-                    "certainty": self.MIN_CERTAINTY
-                })
-                .with_additional(["id", "certainty"])
-                .with_limit(100)  # Get large pool to score all candidates
-                .do()
-            )
+            def _match_consultants():
+                return (
+                    self.client.query
+                    .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
+                    .with_near_text({
+                        "concepts": [project_description],
+                        "certainty": self.MIN_CERTAINTY
+                    })
+                    .with_additional(["id", "certainty"])
+                    .with_limit(100)  # Get large pool to score all candidates
+                    .do()
+                )
+            
+            response = await asyncio.to_thread(_match_consultants)
             
             consultants = []
             if "data" in response and "Get" in response["data"] and "Consultant" in response["data"]["Get"]:
@@ -112,28 +116,31 @@ class MatchingService:
             logger.error("Error matching consultants", exc_info=True, extra={"project_description": project_description[:100]})
             raise Exception(f"Error matching consultants: {error_msg}")
     
-    def match_consultants_by_role(self, role_query: str, limit: int = 3) -> List[Dict]:
+    async def match_consultants_by_role(self, role_query: str, limit: int = 3) -> List[Dict]:
         """Match consultants for a single role query using vector search."""
         if not self.client:
             raise ValueError("Weaviate client not available")
         
-        if not self.consultant_service.schema_exists():
+        if not await self.consultant_service.schema_exists():
             raise ValueError("No consultants found in database. Please upload consultant resumes first.")
         
         try:
             # Perform vector search for this role
             # No certainty threshold - get all matches, we'll sort by score
-            response = (
-                self.client.query
-                .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
-                .with_near_text({
-                    "concepts": [role_query]
-                    # No certainty threshold - get all matches
-                })
-                .with_additional(["id", "certainty"])
-                .with_limit(100)  # Get large pool to score all candidates
-                .do()
-            )
+            def _match_by_role():
+                return (
+                    self.client.query
+                    .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
+                    .with_near_text({
+                        "concepts": [role_query]
+                        # No certainty threshold - get all matches
+                    })
+                    .with_additional(["id", "certainty"])
+                    .with_limit(100)  # Get large pool to score all candidates
+                    .do()
+                )
+            
+            response = await asyncio.to_thread(_match_by_role)
             
             consultants = []
             if "data" in response and "Get" in response["data"] and "Consultant" in response["data"]["Get"]:
@@ -155,13 +162,16 @@ class MatchingService:
             if len(consultants) == 0:
                 try:
                     # Fallback: get all consultants without vector search
-                    fallback_response = (
-                        self.client.query
-                        .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
-                        .with_additional(["id"])
-                        .with_limit(10)  # Get top 10 consultants as fallback
-                        .do()
-                    )
+                    def _fallback_query():
+                        return (
+                            self.client.query
+                            .get("Consultant", ["name", "email", "phone", "skills", "availability", "experience", "education"])
+                            .with_additional(["id"])
+                            .with_limit(10)  # Get top 10 consultants as fallback
+                            .do()
+                        )
+                    
+                    fallback_response = await asyncio.to_thread(_fallback_query)
                     
                     if "data" in fallback_response and "Get" in fallback_response["data"] and "Consultant" in fallback_response["data"]["Get"]:
                         fallback_results = fallback_response["data"]["Get"]["Consultant"]

@@ -60,14 +60,33 @@ bun run dev
 **Run Tests:**
 ```bash
 cd backend
+# Run all tests (excluding performance tests)
+pytest tests/ -v -m "not performance"
+
+# Run only performance tests
+pytest tests/test_performance.py -v -m performance
+
+# Run all tests including performance
 pytest tests/ -v
 ```
 
 ## CI/CD
 
 The project uses GitHub Actions for CI/CD:
-- **Test job**: Runs Python tests in parallel with Docker builds
-- **Build job**: Builds Docker images for frontend and backend
-- **Deploy job**: Deploys to production only if both test and build jobs pass
+- **Test job**: Runs unit and integration tests
+- **Performance job**: Runs performance tests to ensure API response times meet thresholds
+- **Lint job**: Checks code quality and formatting
 
-Tests run automatically on push and pull requests to `main`.
+Tests run automatically on push and pull requests to `main` and `develop` branches.
+
+### Performance Tests
+
+Performance tests verify that API endpoints meet response time thresholds:
+- Health check: < 100ms
+- Root endpoint: < 50ms
+- Get all consultants: < 500ms
+- Match consultants: < 1s
+- Get overview: < 800ms
+- Match roles: < 2s
+
+Tests also verify concurrent request handling and throughput.

@@ -2,7 +2,6 @@
 Resume PDF parsing service using OpenAI API.
 Extracts structured data from PDF resumes.
 """
-import os
 import json
 import base64
 import random
@@ -11,13 +10,12 @@ from typing import List
 from pdf2image import convert_from_bytes
 from openai import OpenAI
 from openai import OpenAIError
-from dotenv import load_dotenv
 import sys
+import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models import ConsultantData
 from logger_config import get_logger
-
-load_dotenv()
+from config import get_settings
 
 logger = get_logger(__name__)
 
@@ -66,7 +64,8 @@ def parse_resume_pdf(pdf_bytes: bytes) -> ConsultantData:
     Raises:
         Exception if parsing fails
     """
-    api_key = os.getenv("OPENAI_APIKEY")
+    settings = get_settings()
+    api_key = settings.openai_apikey
     if not api_key:
         # Missing API key is a server configuration error, not a client error
         raise RuntimeError("OPENAI_APIKEY not found in environment variables")

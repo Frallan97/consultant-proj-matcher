@@ -16,20 +16,20 @@ class OverviewService:
         """Initialize with consultant service."""
         self.consultant_service = consultant_service
     
-    def get_overview(self) -> OverviewResponse:
+    async def get_overview(self) -> OverviewResponse:
         """Get overview statistics: number of CVs, unique skills, and top 10 most common skills."""
         try:
             if not self.consultant_service.client:
                 logger.warning("Weaviate client not available for overview")
                 return OverviewResponse(cvCount=0, uniqueSkillsCount=0, topSkills=[])
             
-            if not self.consultant_service.schema_exists():
+            if not await self.consultant_service.schema_exists():
                 logger.warning("Consultant schema does not exist for overview")
                 return OverviewResponse(cvCount=0, uniqueSkillsCount=0, topSkills=[])
             
             # Fetch all consultants to count and collect skills
             logger.debug("Fetching consultants for overview...")
-            consultants = self.consultant_service.get_consultants_for_overview(limit=500)
+            consultants = await self.consultant_service.get_consultants_for_overview(limit=500)
             logger.debug("Overview query completed, processing results...")
             
             cv_count = len(consultants)

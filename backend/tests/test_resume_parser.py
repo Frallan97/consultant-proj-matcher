@@ -123,7 +123,10 @@ def test_parse_resume_pdf_success(sample_pdf_bytes):
 
 def test_parse_resume_pdf_missing_openai_key(sample_pdf_bytes):
     """Test parsing when OpenAI API key is missing."""
-    with patch('services.resume_parser.os.getenv', return_value=None):
+    from config import Settings
+    # Create a mock settings with empty API key
+    mock_settings = Settings(openai_apikey="")
+    with patch('services.resume_parser.get_settings', return_value=mock_settings):
         with pytest.raises(RuntimeError, match="OPENAI_APIKEY not found"):
             parse_resume_pdf(sample_pdf_bytes)
 
