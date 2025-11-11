@@ -25,7 +25,7 @@ _chat_service: Optional[ChatService] = None
 
 
 def get_weaviate_client() -> Optional[weaviate.Client]:
-    """Get or create Weaviate client."""
+    """Get or create Weaviate client. Retries connection if previous attempt failed."""
     global _weaviate_client
     # Check if main module has a client (for test compatibility)
     # Only use main.client if it's explicitly set to a non-None value
@@ -34,10 +34,13 @@ def get_weaviate_client() -> Optional[weaviate.Client]:
         return main.client
     
     # If main.client is None or doesn't exist, create our own client
+    # Retry connection if previous attempt failed (client is None)
     if _weaviate_client is None:
         settings = get_settings()
         try:
             _weaviate_client = weaviate.Client(url=settings.weaviate_url)
+            # Test the connection by checking schema
+            _weaviate_client.schema.get()
             logger.info(f"Successfully connected to Weaviate at {settings.weaviate_url}")
         except (weaviate.exceptions.WeaviateBaseError, ConnectionError, Exception) as e:
             logger.warning(f"Could not connect to Weaviate at {settings.weaviate_url}: {e}", exc_info=True)
