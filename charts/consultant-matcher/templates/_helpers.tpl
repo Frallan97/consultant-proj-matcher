@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "copenhagen-ai-hackathon.name" -}}
+{{- define "consultant-matcher.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "copenhagen-ai-hackathon.fullname" -}}
+{{- define "consultant-matcher.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "copenhagen-ai-hackathon.chart" -}}
+{{- define "consultant-matcher.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "copenhagen-ai-hackathon.labels" -}}
-helm.sh/chart: {{ include "copenhagen-ai-hackathon.chart" . }}
-{{ include "copenhagen-ai-hackathon.selectorLabels" . }}
+{{- define "consultant-matcher.labels" -}}
+helm.sh/chart: {{ include "consultant-matcher.chart" . }}
+{{ include "consultant-matcher.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -43,7 +43,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "copenhagen-ai-hackathon.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "copenhagen-ai-hackathon.name" . }}
+{{- define "consultant-matcher.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "consultant-matcher.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

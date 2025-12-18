@@ -2,20 +2,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "copenhagen-ai-hackathon.fullname" . }}-weaviate
+  name: {{ include "consultant-matcher.fullname" . }}-weaviate
   labels:
-    {{- include "copenhagen-ai-hackathon.labels" . | nindent 4 }}
+    {{- include "consultant-matcher.labels" . | nindent 4 }}
     component: weaviate
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "copenhagen-ai-hackathon.selectorLabels" . | nindent 6 }}
+      {{- include "consultant-matcher.selectorLabels" . | nindent 6 }}
       component: weaviate
   template:
     metadata:
       labels:
-        {{- include "copenhagen-ai-hackathon.selectorLabels" . | nindent 8 }}
+        {{- include "consultant-matcher.selectorLabels" . | nindent 8 }}
         component: weaviate
     spec:
       containers:
@@ -34,7 +34,7 @@ spec:
         - name: OPENAI_APIKEY
           valueFrom:
             secretKeyRef:
-              name: {{ include "copenhagen-ai-hackathon.fullname" . }}-secrets
+              name: {{ include "consultant-matcher.fullname" . }}-secrets
               key: openai-api-key
         {{- if .Values.weaviate.persistence.enabled }}
         volumeMounts:
@@ -47,6 +47,6 @@ spec:
       volumes:
       - name: weaviate-data
         persistentVolumeClaim:
-          claimName: {{ include "copenhagen-ai-hackathon.fullname" . }}-weaviate-pvc
+          claimName: {{ include "consultant-matcher.fullname" . }}-weaviate-pvc
       {{- end }}
 {{- end }}

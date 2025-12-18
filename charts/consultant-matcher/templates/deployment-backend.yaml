@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "copenhagen-ai-hackathon.fullname" . }}-backend
+  name: {{ include "consultant-matcher.fullname" . }}-backend
   labels:
-    {{- include "copenhagen-ai-hackathon.labels" . | nindent 4 }}
+    {{- include "consultant-matcher.labels" . | nindent 4 }}
     component: backend
 spec:
   replicas: {{ .Values.backend.replicaCount }}
   selector:
     matchLabels:
-      {{- include "copenhagen-ai-hackathon.selectorLabels" . | nindent 6 }}
+      {{- include "consultant-matcher.selectorLabels" . | nindent 6 }}
       component: backend
   template:
     metadata:
       labels:
-        {{- include "copenhagen-ai-hackathon.selectorLabels" . | nindent 8 }}
+        {{- include "consultant-matcher.selectorLabels" . | nindent 8 }}
         component: backend
     spec:
       {{- if .Values.backend.imagePullSecrets }}
@@ -39,7 +39,7 @@ spec:
         - name: OPENAI_APIKEY
           valueFrom:
             secretKeyRef:
-              name: {{ include "copenhagen-ai-hackathon.fullname" . }}-secrets
+              name: {{ include "consultant-matcher.fullname" . }}-secrets
               key: openai-api-key
         resources:
           {{- toYaml .Values.backend.resources | nindent 10 }}

@@ -38,8 +38,8 @@ backend:
       cpu: 250m
       memory: 256Mi
   env:
-    WEAVIATE_URL: "http://copenhagen-ai-hackathon-weaviate:8080"
-    CORS_ORIGINS: "https://copenhagen-ai-hackathon.w.vibeoholic.com"
+    WEAVIATE_URL: "http://consultant-matcher-weaviate:8080"
+    CORS_ORIGINS: "https://consultant-matcher.w.vibeoholic.com"
     UPLOAD_DIR: "uploads/resumes"
     SEED_MOCK_DATA: "true"
     FORCE_SEED: "false"
@@ -75,11 +75,11 @@ weaviate:
 ingress:
   enabled: true
   className: traefik
-  host: copenhagen-ai-hackathon.w.vibeoholic.com
+  host: consultant-matcher.w.vibeoholic.com
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
   tls:
     enabled: true
-    secretName: copenhagen-ai-hackathon-tls
+    secretName: consultant-matcher-tls

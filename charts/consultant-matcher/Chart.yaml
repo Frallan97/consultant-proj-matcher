@@ -1,5 +1,5 @@
 apiVersion: v2
-name: copenhagen-ai-hackathon
+name: consultant-matcher
 description: AI-powered consultant matching application with Weaviate vector search
 type: application
 version: 0.1.0

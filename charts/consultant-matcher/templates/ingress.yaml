@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "copenhagen-ai-hackathon.fullname" . }}
+  name: {{ include "consultant-matcher.fullname" . }}
   labels:
-    {{- include "copenhagen-ai-hackathon.labels" . | nindent 4 }}
+    {{- include "consultant-matcher.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -27,21 +27,21 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "copenhagen-ai-hackathon.fullname" . }}-frontend
+                name: {{ include "consultant-matcher.fullname" . }}-frontend
                 port:
                   number: {{ .Values.frontend.service.port }}
           - path: /api
             pathType: Prefix
             backend:
               service:
-                name: {{ include "copenhagen-ai-hackathon.fullname" . }}-backend
+                name: {{ include "consultant-matcher.fullname" . }}-backend
                 port:
                   number: {{ .Values.backend.service.port }}
           - path: /docs
             pathType: Prefix
             backend:
               service:
-                name: {{ include "copenhagen-ai-hackathon.fullname" . }}-backend
+                name: {{ include "consultant-matcher.fullname" . }}-backend
                 port:
                   number: {{ .Values.backend.service.port }}
 {{- end }}

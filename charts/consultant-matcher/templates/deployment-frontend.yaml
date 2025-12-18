@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "copenhagen-ai-hackathon.fullname" . }}-frontend
+  name: {{ include "consultant-matcher.fullname" . }}-frontend
   labels:
-    {{- include "copenhagen-ai-hackathon.labels" . | nindent 4 }}
+    {{- include "consultant-matcher.labels" . | nindent 4 }}
     component: frontend
 spec:
   replicas: {{ .Values.frontend.replicaCount }}
   selector:
     matchLabels:
-      {{- include "copenhagen-ai-hackathon.selectorLabels" . | nindent 6 }}
+      {{- include "consultant-matcher.selectorLabels" . | nindent 6 }}
       component: frontend
   template:
     metadata:
       labels:
-        {{- include "copenhagen-ai-hackathon.selectorLabels" . | nindent 8 }}
+        {{- include "consultant-matcher.selectorLabels" . | nindent 8 }}
         component: frontend
     spec:
       {{- if .Values.frontend.imagePullSecrets }}

@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "copenhagen-ai-hackathon.fullname" . }}-backend
+  name: {{ include "consultant-matcher.fullname" . }}-backend
   labels:
-    {{- include "copenhagen-ai-hackathon.labels" . | nindent 4 }}
+    {{- include "consultant-matcher.labels" . | nindent 4 }}
     component: backend
 spec:
   type: {{ .Values.backend.service.type }}
@@ -13,5 +13,5 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "copenhagen-ai-hackathon.selectorLabels" . | nindent 4 }}
+    {{- include "consultant-matcher.selectorLabels" . | nindent 4 }}
     component: backend

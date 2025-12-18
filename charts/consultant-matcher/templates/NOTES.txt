@@ -12,7 +12,7 @@ Components deployed:
 
 IMPORTANT: Make sure to create the required secrets manually:
 
-kubectl create secret generic {{ include "copenhagen-ai-hackathon.fullname" . }}-secrets \
+kubectl create secret generic {{ include "consultant-matcher.fullname" . }}-secrets \
   --from-literal=openai-api-key=<YOUR_OPENAI_API_KEY> \
   --namespace={{ .Release.Namespace }}
 

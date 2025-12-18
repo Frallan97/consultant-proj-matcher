@@ -20,30 +20,30 @@ Helm chart for deploying the Copenhagen AI Hackathon consultant matching applica
 ### 1. Create namespace
 
 ```bash
-kubectl create namespace copenhagen-ai-hackathon
+kubectl create namespace consultant-matcher
 ```
 
 ### 2. Copy image pull secret
 
 ```bash
 kubectl get secret ghcr-pull-secret -n fullstack -o yaml | \
-  sed 's/namespace: fullstack/namespace: copenhagen-ai-hackathon/' | \
+  sed 's/namespace: fullstack/namespace: consultant-matcher/' | \
   kubectl apply -f -
 ```
 
 ### 3. Create application secrets
 
 ```bash
-kubectl create secret generic copenhagen-ai-hackathon-secrets \
+kubectl create secret generic consultant-matcher-secrets \
   --from-literal=openai-api-key=<YOUR_OPENAI_API_KEY> \
-  --namespace=copenhagen-ai-hackathon
+  --namespace=consultant-matcher
 ```
 
 ### 4. Install the chart
 
 ```bash
-helm install copenhagen-ai-hackathon ./charts/copenhagen-ai-hackathon \
-  --namespace copenhagen-ai-hackathon
+helm install consultant-matcher ./charts/consultant-matcher \
+  --namespace consultant-matcher
 ```
 
 ## Configuration
@@ -61,22 +61,22 @@ See `values.yaml` for all configuration options.
 ## Accessing the Application
 
 Once deployed, access at:
-- **Application**: https://copenhagen-ai-hackathon.w.vibeoholic.com
-- **API Docs**: https://copenhagen-ai-hackathon.w.vibeoholic.com/docs
+- **Application**: https://consultant-matcher.w.vibeoholic.com
+- **API Docs**: https://consultant-matcher.w.vibeoholic.com/docs
 
 ## Monitoring
 
 Check deployment status:
 
 ```bash
-kubectl get pods -n copenhagen-ai-hackathon
-kubectl get ingress -n copenhagen-ai-hackathon
-kubectl logs -n copenhagen-ai-hackathon -l component=backend
+kubectl get pods -n consultant-matcher
+kubectl get ingress -n consultant-matcher
+kubectl logs -n consultant-matcher -l component=backend
 ```
 
 ## Uninstallation
 
 ```bash
-helm uninstall copenhagen-ai-hackathon --namespace copenhagen-ai-hackathon
-kubectl delete namespace copenhagen-ai-hackathon
+helm uninstall consultant-matcher --namespace consultant-matcher
+kubectl delete namespace consultant-matcher
 ```
