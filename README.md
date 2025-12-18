@@ -81,8 +81,49 @@ The project uses GitHub Actions for CI/CD:
 - **Test job**: Runs unit and integration tests
 - **Performance job**: Runs performance tests to ensure API response times meet thresholds
 - **Lint job**: Checks code quality and formatting
+- **Build and Push**: Builds Docker images and pushes to GitHub Container Registry (GHCR)
 
 Tests run automatically on push and pull requests to `main` and `develop` branches.
+
+## Kubernetes Deployment
+
+The application is deployed to Kubernetes using ArgoCD and Helm.
+
+**Live Application:** https://consultant-matcher.w.vibeoholic.com
+**API Documentation:** https://consultant-matcher.w.vibeoholic.com/docs
+
+### Deployment Details
+
+- **Repository:** https://github.com/Frallan97/consultant-proj-matcher
+- **Namespace:** consultant-matcher
+- **Components:**
+  - Frontend: React SPA served by Nginx
+  - Backend: Python FastAPI application
+  - Weaviate: Vector database for semantic search
+- **Ingress:** Traefik with automatic TLS via cert-manager
+- **Container Registry:** ghcr.io/frallan97/consultant-proj-matcher-*
+
+### Helm Chart
+
+The Helm chart is located in `charts/consultant-matcher/`. See the chart README for installation instructions.
+
+### Managing the Deployment
+
+```bash
+# View pod status
+kubectl get pods -n consultant-matcher
+
+# View logs
+kubectl logs -n consultant-matcher -l component=backend
+kubectl logs -n consultant-matcher -l component=frontend
+kubectl logs -n consultant-matcher -l component=weaviate
+
+# Check ingress
+kubectl get ingress -n consultant-matcher
+
+# ArgoCD status
+kubectl get application consultant-matcher -n argocd
+```
 
 ### Performance Tests
 
