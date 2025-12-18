@@ -1,0 +1,85 @@
+# Frontend Configuration
+frontend:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/frallan97/copenhagen-ai-hackathon-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  imagePullSecrets:
+    - ghcr-pull-secret
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Backend/API Configuration
+backend:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/frallan97/copenhagen-ai-hackathon-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  imagePullSecrets:
+    - ghcr-pull-secret
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  env:
+    WEAVIATE_URL: "http://copenhagen-ai-hackathon-weaviate:8080"
+    CORS_ORIGINS: "https://copenhagen-ai-hackathon.w.vibeoholic.com"
+    UPLOAD_DIR: "uploads/resumes"
+    SEED_MOCK_DATA: "true"
+    FORCE_SEED: "false"
+
+# Weaviate Vector Database Configuration
+weaviate:
+  enabled: true
+  image:
+    repository: semitechnologies/weaviate
+    tag: "1.24.0"
+  service:
+    type: ClusterIP
+    port: 8080
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    QUERY_DEFAULTS_LIMIT: "25"
+    AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+    PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
+    DEFAULT_VECTORIZER_MODULE: "none"
+    ENABLE_MODULES: "text2vec-openai,text2vec-cohere,text2vec-huggingface,ref2vec-centroid,generative-openai,qna-openai"
+    CLUSTER_HOSTNAME: "node1"
+
+# Ingress Configuration
+ingress:
+  enabled: true
+  className: traefik
+  host: copenhagen-ai-hackathon.w.vibeoholic.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+  tls:
+    enabled: true
+    secretName: copenhagen-ai-hackathon-tls

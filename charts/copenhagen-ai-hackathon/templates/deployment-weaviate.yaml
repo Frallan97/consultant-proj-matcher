@@ -1,0 +1,52 @@
+{{- if .Values.weaviate.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "copenhagen-ai-hackathon.fullname" . }}-weaviate
+  labels:
+    {{- include "copenhagen-ai-hackathon.labels" . | nindent 4 }}
+    component: weaviate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "copenhagen-ai-hackathon.selectorLabels" . | nindent 6 }}
+      component: weaviate
+  template:
+    metadata:
+      labels:
+        {{- include "copenhagen-ai-hackathon.selectorLabels" . | nindent 8 }}
+        component: weaviate
+    spec:
+      containers:
+      - name: weaviate
+        image: "{{ .Values.weaviate.image.repository }}:{{ .Values.weaviate.image.tag }}"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: {{ .Values.weaviate.service.port }}
+          protocol: TCP
+        env:
+        {{- range $key, $value := .Values.weaviate.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        - name: OPENAI_APIKEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "copenhagen-ai-hackathon.fullname" . }}-secrets
+              key: openai-api-key
+        {{- if .Values.weaviate.persistence.enabled }}
+        volumeMounts:
+        - name: weaviate-data
+          mountPath: /var/lib/weaviate
+        {{- end }}
+        resources:
+          {{- toYaml .Values.weaviate.resources | nindent 10 }}
+      {{- if .Values.weaviate.persistence.enabled }}
+      volumes:
+      - name: weaviate-data
+        persistentVolumeClaim:
+          claimName: {{ include "copenhagen-ai-hackathon.fullname" . }}-weaviate-pvc
+      {{- end }}
+{{- end }}

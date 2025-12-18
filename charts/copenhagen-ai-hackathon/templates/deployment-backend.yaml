@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "copenhagen-ai-hackathon.fullname" . }}-backend
+  labels:
+    {{- include "copenhagen-ai-hackathon.labels" . | nindent 4 }}
+    component: backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "copenhagen-ai-hackathon.selectorLabels" . | nindent 6 }}
+      component: backend
+  template:
+    metadata:
+      labels:
+        {{- include "copenhagen-ai-hackathon.selectorLabels" . | nindent 8 }}
+        component: backend
+    spec:
+      {{- if .Values.backend.imagePullSecrets }}
+      imagePullSecrets:
+      {{- range .Values.backend.imagePullSecrets }}
+      - name: {{ . }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: backend
+        image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+        imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.backend.service.port }}
+          protocol: TCP
+        env:
+        {{- range $key, $value := .Values.backend.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        - name: OPENAI_APIKEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "copenhagen-ai-hackathon.fullname" . }}-secrets
+              key: openai-api-key
+        resources:
+          {{- toYaml .Values.backend.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5

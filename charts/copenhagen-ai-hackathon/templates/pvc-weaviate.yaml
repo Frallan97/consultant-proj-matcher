@@ -1,0 +1,15 @@
+{{- if and .Values.weaviate.enabled .Values.weaviate.persistence.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "copenhagen-ai-hackathon.fullname" . }}-weaviate-pvc
+  labels:
+    {{- include "copenhagen-ai-hackathon.labels" . | nindent 4 }}
+    component: weaviate
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.weaviate.persistence.size }}
+{{- end }}

@@ -1,0 +1,28 @@
+Copenhagen AI Hackathon Application has been deployed!
+
+To access the application:
+  https://{{ .Values.ingress.host }}
+
+Components deployed:
+- Frontend: {{ .Values.frontend.replicaCount }} replica(s)
+- Backend:  {{ .Values.backend.replicaCount }} replica(s)
+{{- if .Values.weaviate.enabled }}
+- Weaviate: 1 replica
+{{- end }}
+
+IMPORTANT: Make sure to create the required secrets manually:
+
+kubectl create secret generic {{ include "copenhagen-ai-hackathon.fullname" . }}-secrets \
+  --from-literal=openai-api-key=<YOUR_OPENAI_API_KEY> \
+  --namespace={{ .Release.Namespace }}
+
+To check the status of your application:
+  kubectl get pods -n {{ .Release.Namespace }}
+  kubectl get ingress -n {{ .Release.Namespace }}
+
+To view logs:
+  kubectl logs -n {{ .Release.Namespace }} -l component=backend
+  kubectl logs -n {{ .Release.Namespace }} -l component=frontend
+{{- if .Values.weaviate.enabled }}
+  kubectl logs -n {{ .Release.Namespace }} -l component=weaviate
+{{- end }}
