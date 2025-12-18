@@ -8,8 +8,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME_FRONTEND: frallan97/copenhagen-ai-hackathon-frontend
-  IMAGE_NAME_BACKEND: frallan97/copenhagen-ai-hackathon-backend
+  IMAGE_NAME_FRONTEND: frallan97/consultant-proj-matcher-frontend
+  IMAGE_NAME_BACKEND: frallan97/consultant-proj-matcher-backend
 
 jobs:
   build-and-push:

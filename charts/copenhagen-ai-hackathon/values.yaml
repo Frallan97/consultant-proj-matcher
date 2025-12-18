@@ -2,7 +2,7 @@
 frontend:
   replicaCount: 1
   image:
-    repository: ghcr.io/frallan97/copenhagen-ai-hackathon-frontend
+    repository: ghcr.io/frallan97/consultant-proj-matcher-frontend
     tag: latest
     pullPolicy: IfNotPresent
   imagePullSecrets:
@@ -22,7 +22,7 @@ frontend:
 backend:
   replicaCount: 1
   image:
-    repository: ghcr.io/frallan97/copenhagen-ai-hackathon-backend
+    repository: ghcr.io/frallan97/consultant-proj-matcher-backend
     tag: latest
     pullPolicy: IfNotPresent
   imagePullSecrets:
