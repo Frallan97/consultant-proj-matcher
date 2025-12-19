@@ -89,8 +89,8 @@ Tests run automatically on push and pull requests to `main` and `develop` branch
 
 The application is deployed to Kubernetes using ArgoCD and Helm.
 
-**Live Application:** https://consultant-matcher.w.vibeoholic.com
-**API Documentation:** https://consultant-matcher.w.vibeoholic.com/docs
+**Live Application:** https://consultant-matcher.vibeoholic.com
+**API Documentation:** https://consultant-matcher.vibeoholic.com/docs
 
 ### Deployment Details
 
