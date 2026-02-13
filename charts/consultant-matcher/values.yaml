@@ -83,3 +83,9 @@ ingress:
   tls:
     enabled: true
     secretName: consultant-matcher-tls
+
+# Prometheus ServiceMonitor for metrics collection
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s

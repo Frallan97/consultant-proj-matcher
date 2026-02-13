@@ -7,6 +7,7 @@ import weaviate
 import os
 import uuid
 import logging
+from prometheus_fastapi_instrumentator import Instrumentator
 from storage import LocalFileStorage
 from services.resume_parser import parse_resume_pdf
 from services.consultant_service import ConsultantService
@@ -48,6 +49,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Prometheus metrics instrumentation
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 # Keep global variables for backward compatibility with tests
 # Tests can still patch main.client, main.storage, etc. if needed

@@ -1,0 +1,22 @@
+{{- if .Values.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "consultant-matcher.fullname" . }}-backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "consultant-matcher.labels" . | nindent 4 }}
+    component: backend
+    # Required label for Prometheus Operator service discovery
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      {{- include "consultant-matcher.selectorLabels" . | nindent 6 }}
+      component: backend
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: {{ .Values.serviceMonitor.interval }}
+    scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+{{- end }}
